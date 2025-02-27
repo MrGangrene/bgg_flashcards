@@ -5,7 +5,6 @@ from pages.main_page import MainPage
 from pages.game_search_page import GameSearchPage
 from pages.game_detail_page import GameDetailPage
 from pages.create_flashcard_page import CreateFlashcardPage
-from pages.edit_flashcard_page import EditFlashcardPage
 
 
 def main(page: ft.Page):
@@ -75,33 +74,36 @@ def main(page: ft.Page):
                 )
             )
 
-        elif route.route.startswith("/game/") and route.route.endswith("/create_flashcard") and route.route.count('/') == 3:
-            # Create flashcard page
-            # Extract the game_id from the route correctly
+        elif route.route.startswith("/game/") and "/create_flashcard/" in route.route:
+            # Create flashcard page with category
+            # Extract the game_id and category from the route
             path_parts = route.route.split("/")
-            game_id = int(path_parts[-2])  # Get the second-to-last part which is the game_id
+            game_id = int(path_parts[-3])  # Game ID is now third-to-last
+            category = path_parts[-1]  # Category is now the last part
+            
             create_page = CreateFlashcardPage(
                 page=page,
                 game_id=game_id,
                 user_id=current_user.id,
+                default_category=category,
                 on_save=lambda: page.go(f"/game/{game_id}"),
                 on_back=lambda: page.go(f"/game/{game_id}")
             )
             page.views.append(
                 ft.View(
-                    route=f"/game/{game_id}/create_flashcard",
+                    route=f"/game/{game_id}/create_flashcard/{category}",
                     controls=[create_page.build()],
                 )
             )
 
         elif route.route.startswith("/game/") and route.route.endswith("/edit_flashcard"):
-            # Edit flashcard page
+            # Edit flashcard page - now using CreateFlashcardPage in edit mode
             # Extract the flashcard_id from the route
             parts = route.route.split("/")
             flashcard_id = int(parts[-2])
             game_id = int(parts[-4])  # Game ID is needed for navigation
             
-            edit_page = EditFlashcardPage(
+            edit_page = CreateFlashcardPage(
                 page=page,
                 flashcard_id=flashcard_id,
                 on_save=lambda: page.go(f"/game/{game_id}"),
@@ -120,7 +122,7 @@ def main(page: ft.Page):
                 page=page,
                 game_id=game_id,
                 user_id=current_user.id,
-                on_create_flashcard=lambda game_id: page.go(f"/game/{game_id}/create_flashcard"),
+                on_create_flashcard=lambda game_id, category: page.go(f"/game/{game_id}/create_flashcard/{category}"),
                 on_edit_flashcard=lambda flashcard_id: page.go(f"/game/{game_id}/flashcard/{flashcard_id}/edit_flashcard"),
                 on_back=lambda: page.go("/")
             )

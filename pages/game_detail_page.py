@@ -195,7 +195,7 @@ class GameDetailPage:
                         ft.ElevatedButton(
                             text="Create Flashcard",
                             icon=ft.icons.ADD,
-                            on_click=lambda e: self.on_create_flashcard(self.game_id)
+                            on_click=lambda e: self.on_create_flashcard(self.game_id, self.current_category)
                         )
                     ],
                     spacing=10,
