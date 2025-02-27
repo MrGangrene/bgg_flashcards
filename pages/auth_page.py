@@ -15,9 +15,24 @@ class AuthPage:
         self.on_login = on_login
 
     def build(self):
-        self.username = ft.TextField(label="Username", autofocus=True, width=300)
-        self.password = ft.TextField(label="Password", password=True, width=300)
-        self.email = ft.TextField(label="Email", width=300, visible=False)  # For registration
+        self.username = ft.TextField(
+            label="Username", 
+            autofocus=True, 
+            width=300,
+            on_submit=self.login
+        )
+        self.password = ft.TextField(
+            label="Password", 
+            password=True, 
+            width=300,
+            on_submit=self.login
+        )
+        self.email = ft.TextField(
+            label="Email", 
+            width=300, 
+            visible=False,
+            on_submit=self.login
+        )  # For registration
 
         self.message = ft.Text("", color=ft.colors.RED)
 

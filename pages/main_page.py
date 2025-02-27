@@ -1,6 +1,5 @@
 import flet as ft
 from models.user import User
-from models.game import Game
 
 
 class MainPage:
@@ -35,7 +34,7 @@ class MainPage:
         game_grid = ft.GridView(
             expand=1,
             runs_count=3,
-            max_extent=200,
+            max_extent=250,
             child_aspect_ratio=1.0,
             spacing=10,
             run_spacing=10,
@@ -56,9 +55,9 @@ class MainPage:
                                     height=100,
                                     fit=ft.ImageFit.CONTAIN,
                                 ),
-                                ft.Text(game.name, size=16, weight=ft.FontWeight.BOLD),
-                                ft.Text(f"Rating: {game.avg_rating}/10", size=12),
-                                ft.Text(f"Players: {game.min_players}-{game.max_players}", size=12),
+                                ft.Text(game.name, size=16, weight=ft.FontWeight.BOLD, text_align=ft.TextAlign.CENTER),
+                                ft.Text(f"Rating: {game.avg_rating}", size=12),
+                                ft.Text(f"Players: {game.min_players if game.min_players == game.max_players else f'{game.min_players}-{game.max_players}'}", size=12),
                             ],
                             alignment=ft.MainAxisAlignment.CENTER,
                             horizontal_alignment=ft.CrossAxisAlignment.CENTER,

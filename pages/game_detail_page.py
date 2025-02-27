@@ -1,19 +1,25 @@
 import flet as ft
 from models.game import Game
-from models.flashcard import Flashcard
 
 
 class GameDetailPage:
-    def __init__(self, page: ft.Page, game_id, user_id, on_create_flashcard, on_back):
+    def __init__(self, page: ft.Page, game_id, user_id, on_create_flashcard, on_edit_flashcard, on_back):
+        self.flashcards_view = None
         self.page = page
         self.game_id = game_id
         self.user_id = user_id
         self.on_create_flashcard = on_create_flashcard
+        self.on_edit_flashcard = on_edit_flashcard
         self.on_back = on_back
         self.game = None
+        self.user = None
         self.flashcards = []
         self.current_category = "Setup"
         self.categories = ["Setup", "Rules", "Points", "End of the game"]
+        
+        # Load user
+        from models.user import User
+        self.user = User.load_by_id(user_id)
 
     def load_data(self):
         self.game = Game.load_by_id(self.game_id)
@@ -49,11 +55,21 @@ class GameDetailPage:
                                 ft.Row(
                                     [
                                         ft.Text(flashcard.title, size=18, weight=ft.FontWeight.BOLD),
-                                        # Add delete button
-                                        ft.IconButton(
-                                            icon=ft.icons.DELETE,
-                                            tooltip="Delete Flashcard",
-                                            on_click=lambda e, f_id=flashcard.id: self.delete_flashcard(f_id)
+                                        ft.Row(
+                                            [
+                                                # Add edit button
+                                                ft.IconButton(
+                                                    icon=ft.icons.EDIT,
+                                                    tooltip="Edit Flashcard",
+                                                    on_click=lambda e, f_id=flashcard.id: self.on_edit_flashcard(f_id)
+                                                ),
+                                                # Add delete button
+                                                ft.IconButton(
+                                                    icon=ft.icons.DELETE,
+                                                    tooltip="Delete Flashcard",
+                                                    on_click=lambda e, f_id=flashcard.id: self.delete_flashcard(f_id)
+                                                ),
+                                            ],
                                         ),
                                     ],
                                     alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
@@ -102,6 +118,37 @@ class GameDetailPage:
         self.page.overlay.append(dialog)
         dialog.open = True
         self.page.update()
+        
+    def remove_game(self):
+        # Create confirmation dialog
+        def close_dialog(e):
+            dialog.open = False
+            self.page.update()
+
+        def confirm_remove(e):
+            dialog.open = False
+            self.page.update()
+
+            # Remove the game from user's saved games
+            if self.user:
+                self.user.unsave_game(self.game_id)
+                # Navigate back to the main page
+                self.on_back()
+
+        dialog = ft.AlertDialog(
+            title=ft.Text("Confirm Removal"),
+            content=ft.Text(f"Remove '{self.game.name}' from your saved games?"),
+            actions=[
+                ft.TextButton("Cancel", on_click=close_dialog),
+                ft.TextButton("Remove", on_click=confirm_remove),
+            ],
+            actions_alignment=ft.MainAxisAlignment.END,
+        )
+
+        # Show the dialog by adding it to the page
+        self.page.overlay.append(dialog)
+        dialog.open = True
+        self.page.update()
 
     def build(self):
         if not self.load_data():
@@ -114,7 +161,7 @@ class GameDetailPage:
                 horizontal_alignment=ft.CrossAxisAlignment.CENTER,
             )
 
-        # Create header with back button
+        # Create header with back button and delete button
         header = ft.Row(
             [
                 ft.IconButton(
@@ -123,7 +170,13 @@ class GameDetailPage:
                     on_click=lambda e: self.on_back()
                 ),
                 ft.Text(self.game.name, size=24, weight=ft.FontWeight.BOLD),
-            ]
+                ft.IconButton(
+                    icon=ft.icons.DELETE,
+                    tooltip="Remove from My Games",
+                    on_click=lambda e: self.remove_game()
+                ),
+            ],
+            alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
         )
 
         # Game info section
@@ -137,8 +190,8 @@ class GameDetailPage:
                 ),
                 ft.Column(
                     [
-                        ft.Text(f"Rating: {self.game.avg_rating}/10"),
-                        ft.Text(f"Players: {self.game.min_players}-{self.game.max_players}"),
+                        ft.Text(f"Rating: {self.game.avg_rating}"),
+                        ft.Text(f"Players: {self.game.min_players if self.game.min_players == self.game.max_players else f'{self.game.min_players}-{self.game.max_players}'}"),
                         ft.ElevatedButton(
                             text="Create Flashcard",
                             icon=ft.icons.ADD,

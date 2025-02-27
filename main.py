@@ -5,6 +5,7 @@ from pages.main_page import MainPage
 from pages.game_search_page import GameSearchPage
 from pages.game_detail_page import GameDetailPage
 from pages.create_flashcard_page import CreateFlashcardPage
+from pages.edit_flashcard_page import EditFlashcardPage
 
 
 def main(page: ft.Page):
@@ -31,7 +32,7 @@ def main(page: ft.Page):
         page.views.clear()
 
         if not current_user and route.route != "/login":
-            # Redirect to login if not authenticated
+            # Redirect to log in if not authenticated
             page.go("/login")
             return
 
@@ -74,7 +75,7 @@ def main(page: ft.Page):
                 )
             )
 
-        elif route.route.startswith("/game/") and route.route.endswith("/create_flashcard"):
+        elif route.route.startswith("/game/") and route.route.endswith("/create_flashcard") and route.route.count('/') == 3:
             # Create flashcard page
             # Extract the game_id from the route correctly
             path_parts = route.route.split("/")
@@ -93,7 +94,26 @@ def main(page: ft.Page):
                 )
             )
 
-        elif route.route.startswith("/game/"):
+        elif route.route.startswith("/game/") and route.route.endswith("/edit_flashcard"):
+            # Edit flashcard page
+            # Extract the flashcard_id from the route
+            parts = route.route.split("/")
+            flashcard_id = int(parts[-2])
+            game_id = int(parts[-4])  # Game ID is needed for navigation
+            
+            edit_page = EditFlashcardPage(
+                page=page,
+                flashcard_id=flashcard_id,
+                on_save=lambda: page.go(f"/game/{game_id}"),
+                on_back=lambda: page.go(f"/game/{game_id}")
+            )
+            page.views.append(
+                ft.View(
+                    route=f"/game/{game_id}/flashcard/{flashcard_id}/edit_flashcard",
+                    controls=[edit_page.build()],
+                )
+            )
+        elif route.route.startswith("/game/") and not route.route.endswith("/create_flashcard") and not route.route.endswith("/edit_flashcard"):
             # Game detail page with flashcards
             game_id = int(route.route.split("/")[-1])
             game_page = GameDetailPage(
@@ -101,28 +121,13 @@ def main(page: ft.Page):
                 game_id=game_id,
                 user_id=current_user.id,
                 on_create_flashcard=lambda game_id: page.go(f"/game/{game_id}/create_flashcard"),
+                on_edit_flashcard=lambda flashcard_id: page.go(f"/game/{game_id}/flashcard/{flashcard_id}/edit_flashcard"),
                 on_back=lambda: page.go("/")
             )
             page.views.append(
                 ft.View(
                     route=f"/game/{game_id}",
                     controls=[game_page.build()],
-                )
-            )
-        elif route.route.startswith("/game/") and route.route.endswith("/create_flashcard"):
-            # Create flashcard page
-            game_id = int(route.route.split("/")[-2])
-            create_page = CreateFlashcardPage(
-                page=page,
-                game_id=game_id,
-                user_id=current_user.id,
-                on_save=lambda: page.go(f"/game/{game_id}"),
-                on_back=lambda: page.go(f"/game/{game_id}")
-            )
-            page.views.append(
-                ft.View(
-                    route=f"/game/{game_id}/create_flashcard",
-                    controls=[create_page.build()],
                 )
             )
 

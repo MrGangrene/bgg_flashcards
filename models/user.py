@@ -1,10 +1,10 @@
 import hashlib
-import uuid
 from database import CursorFromConnectionPool
 
 
 class User:
     def __init__(self, username, email, password, id=None):
+        self.password_hash = None
         self.id = id
         self.username = username
         self.email = email
@@ -31,11 +31,24 @@ class User:
                 user.password_hash = password_hash
                 return user
             return None
+            
+    @classmethod
+    def load_by_id(cls, user_id):
+        with CursorFromConnectionPool() as cursor:
+            cursor.execute('SELECT id, username, email, password_hash FROM users WHERE id = %s', (user_id,))
+            user_data = cursor.fetchone()
+            if user_data:
+                id, username, email, password_hash = user_data
+                user = cls(username, email, '', id)
+                user.password_hash = password_hash
+                return user
+            return None
 
     def verify_password(self, password_to_check):
         return self._hash_password(password_to_check) == self.password_hash
 
-    def _hash_password(self, password):
+    @staticmethod
+    def _hash_password(password):
         # Simple hashing for demonstration - in a real app, use a proper password hashing library like bcrypt
         return hashlib.sha256(password.encode()).hexdigest()
 
@@ -60,4 +73,9 @@ class User:
     def save_game(self, game_id):
         with CursorFromConnectionPool() as cursor:
             cursor.execute('INSERT INTO user_saved_games (user_id, game_id) VALUES (%s, %s) ON CONFLICT DO NOTHING',
+                           (self.id, game_id))
+                           
+    def unsave_game(self, game_id):
+        with CursorFromConnectionPool() as cursor:
+            cursor.execute('DELETE FROM user_saved_games WHERE user_id = %s AND game_id = %s',
                            (self.id, game_id))

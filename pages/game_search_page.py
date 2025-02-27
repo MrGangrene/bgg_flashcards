@@ -5,22 +5,49 @@ from models.user import User
 
 class GameSearchPage:
     def __init__(self, page: ft.Page, user: User, on_save_game, on_back):
+        self.results_list = None
+        self.search_field = None
         self.page = page
         self.user = user
         self.on_save_game = on_save_game
         self.on_back = on_back
         self.search_results = []
+        self.is_loading = False
 
     def search_games(self, e):
         query = self.search_field.value
         if query:
+            self.is_loading = True
+            self.update_loading_state()
+            
+            # Get search results (includes BGG API call if local DB has no matches)
             self.search_results = Game.search_by_name(query)
+            
+            self.is_loading = False
             self.update_results_list()
+
+    def update_loading_state(self):
+        self.results_list.controls.clear()
+        
+        if self.is_loading:
+            self.results_list.controls.append(
+                ft.Column([
+                    ft.ProgressRing(),
+                    ft.Text("Searching local database and BoardGameGeek..."),
+                ], alignment=ft.MainAxisAlignment.CENTER)
+            )
+        
+        self.page.update()
 
     def update_results_list(self):
         self.results_list.controls.clear()
 
-        for game in self.search_results:
+        # Show source (database or BGG API)
+        for i, game in enumerate(self.search_results):
+            source_text = ""
+            if hasattr(game, '_source'):
+                source_text = f" • From: {game._source}"
+            
             game_item = ft.ListTile(
                 leading=ft.Image(
                     src=game.image_path if game.image_path else "/placeholder.png",
@@ -29,7 +56,7 @@ class GameSearchPage:
                     fit=ft.ImageFit.CONTAIN,
                 ),
                 title=ft.Text(game.name),
-                subtitle=ft.Text(f"Rating: {game.avg_rating}/10 • Players: {game.min_players}-{game.max_players}"),
+                subtitle=ft.Text(f"Rating: {game.avg_rating} • Players: {game.min_players if game.min_players == game.max_players else f'{game.min_players}-{game.max_players}'}{source_text}"),
                 trailing=ft.IconButton(
                     icon=ft.icons.ADD,
                     tooltip="Add to my games",
@@ -39,7 +66,12 @@ class GameSearchPage:
             self.results_list.controls.append(game_item)
 
         if not self.search_results:
-            self.results_list.controls.append(ft.Text("No games found"))
+            self.results_list.controls.append(
+                ft.Column([
+                    ft.Text("No games found", size=16),
+                    ft.Text("We searched both your database and BoardGameGeek", size=12),
+                ], alignment=ft.MainAxisAlignment.CENTER)
+            )
 
         self.page.update()
 
@@ -78,6 +110,14 @@ class GameSearchPage:
             [self.search_field, search_button],
             alignment=ft.MainAxisAlignment.CENTER,
         )
+        
+        # Info text about BGG integration
+        bgg_info = ft.Text(
+            "Searches both locally and on BoardGameGeek",
+            size=12, 
+            italic=True,
+            text_align=ft.TextAlign.CENTER
+        )
 
         # Results list
         self.results_list = ft.ListView(
@@ -90,6 +130,7 @@ class GameSearchPage:
                 header,
                 ft.Divider(),
                 search_row,
+                bgg_info,
                 ft.Divider(),
                 self.results_list,
             ],
