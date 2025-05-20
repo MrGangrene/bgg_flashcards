@@ -19,7 +19,7 @@ class CreateFlashcardPage:
         self.game = None
         self.flashcard = None
         self.is_edit_mode = flashcard_id is not None
-        self.categories = ["Setup", "Rules", "Points", "End of the game"]
+        self.categories = ["Setup", "Rules", "Events", "Points", "End of the game", "Notes"]
 
     def load_data(self):
         if self.is_edit_mode:
@@ -54,7 +54,7 @@ class CreateFlashcardPage:
             self.flashcard.category = category
             self.flashcard.update()
             self.message.value = "Flashcard updated successfully"
-            self.message.color = ft.colors.GREEN
+            self.message.color = ft.Colors.GREEN
         else:
             # Check if a flashcard with this title already exists for this game and user
             existing_flashcard = Flashcard.find_by_game_user_title(self.game_id, self.user_id, title)
@@ -66,13 +66,13 @@ class CreateFlashcardPage:
                 existing_flashcard.category = category
                 existing_flashcard.update()
                 self.message.value = "Flashcard content appended successfully"
-                self.message.color = ft.colors.GREEN
+                self.message.color = ft.Colors.GREEN
             else:
                 # Create new flashcard
                 flashcard = Flashcard(self.game_id, self.user_id, category, title, content)
                 flashcard.save_to_db()
                 self.message.value = "New flashcard created successfully"
-                self.message.color = ft.colors.GREEN
+                self.message.color = ft.Colors.GREEN
         
         self.page.update()
         self.on_save()
@@ -94,7 +94,7 @@ class CreateFlashcardPage:
         header = ft.Row(
             [
                 ft.IconButton(
-                    icon=ft.icons.ARROW_BACK,
+                    icon=ft.Icons.ARROW_BACK,
                     tooltip="Back to Game",
                     on_click=lambda e: self.on_back()
                 ),
@@ -102,7 +102,7 @@ class CreateFlashcardPage:
             ]
         )
 
-        self.message = ft.Text("", color=ft.colors.RED)
+        self.message = ft.Text("", color=ft.Colors.RED)
 
         # Create form fields
         self.category_dropdown = ft.Dropdown(

@@ -15,7 +15,7 @@ class GameDetailPage:
         self.user = None
         self.flashcards = []
         self.current_category = "Setup"
-        self.categories = ["Setup", "Rules", "Points", "End of the game"]
+        self.categories = ["Setup", "Rules", "Events", "Points", "End of the game", "Notes"]
         
         # Load user
         from models.user import User
@@ -59,13 +59,13 @@ class GameDetailPage:
                                             [
                                                 # Add edit button
                                                 ft.IconButton(
-                                                    icon=ft.icons.EDIT,
+                                                    icon=ft.Icons.EDIT,
                                                     tooltip="Edit Flashcard",
                                                     on_click=lambda e, f_id=flashcard.id: self.on_edit_flashcard(f_id)
                                                 ),
                                                 # Add delete button
                                                 ft.IconButton(
-                                                    icon=ft.icons.DELETE,
+                                                    icon=ft.Icons.DELETE,
                                                     tooltip="Delete Flashcard",
                                                     on_click=lambda e, f_id=flashcard.id: self.delete_flashcard(f_id)
                                                 ),
@@ -165,13 +165,13 @@ class GameDetailPage:
         header = ft.Row(
             [
                 ft.IconButton(
-                    icon=ft.icons.ARROW_BACK,
+                    icon=ft.Icons.ARROW_BACK,
                     tooltip="Back to My Games",
                     on_click=lambda e: self.on_back()
                 ),
                 ft.Text(self.game.name, size=24, weight=ft.FontWeight.BOLD),
                 ft.IconButton(
-                    icon=ft.icons.DELETE,
+                    icon=ft.Icons.DELETE,
                     tooltip="Remove from My Games",
                     on_click=lambda e: self.remove_game()
                 ),
@@ -194,7 +194,7 @@ class GameDetailPage:
                         ft.Text(f"Players: {self.game.min_players if self.game.min_players == self.game.max_players else f'{self.game.min_players}-{self.game.max_players}'}"),
                         ft.ElevatedButton(
                             text="Create Flashcard",
-                            icon=ft.icons.ADD,
+                            icon=ft.Icons.ADD,
                             on_click=lambda e: self.on_create_flashcard(self.game_id, self.current_category)
                         )
                     ],

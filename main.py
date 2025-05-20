@@ -1,35 +1,101 @@
 import flet as ft
-from database import Database
+from database import Database, DatabaseError
 from pages.auth_page import AuthPage
 from pages.main_page import MainPage
 from pages.game_search_page import GameSearchPage
 from pages.game_detail_page import GameDetailPage
 from pages.create_flashcard_page import CreateFlashcardPage
+from pages.db_error_page import DbErrorPage
 
 
 def main(page: ft.Page):
-    # Initialize database connection
-    Database.initialize(
-        minconn=1,
-        maxconn=10,
-        database="bgg_flashcards",
-        user="stephen.van.cauwenberghe",
-        password="password",
-        host="localhost",
-        port="5432"
-    )
-
+    """This is the main function that runs our app.
+    
+    It sets up the database, handles routing between pages,
+    and manages user login state.
+    
+    Args:
+        page: The main Flet page that will hold our app
+    """
     page.title = "Board Game Flashcards"
     page.theme_mode = ft.ThemeMode.SYSTEM
     page.padding = 0
 
     # Application state
     current_user = None
+    db_connected = False
+    
+    # Function to initialize database connection
+    def initialize_database():
+        nonlocal db_connected
+        try:
+            # Initialize database connection
+            Database.initialize(
+                minconn=1,
+                maxconn=10,
+                database="bgg_flashcards",
+                # user="stephen.van.cauwenberghe",
+                # password="password",
+                user="stephenvc",
+                password="UsCAxzFPGT217HHjXvEQCAThUU8ciZ5Z8gAH9FxxKI3e5qzBQn",
+                host="10.0.0.150",
+                # host="localhost",
+                port="5432"
+            )
+            db_connected = True
+            # If we were showing the error page, redirect to log in
+            if page.route == "/db_error":
+                page.go("/login")
+            return True
+        except DatabaseError:
+            db_connected = False
+            # Show database error page
+            show_db_error_page()
+            return False
+    
+    # Initialize database on startup
+    initialize_database()
+    
+    # Function to show database error page
+    def show_db_error_page():
+        """Show the database error page and clear other views."""
+        page.views.clear()
+        db_error_page = DbErrorPage(
+            page=page,
+            on_retry=initialize_database
+        )
+        page.views.append(
+            ft.View(
+                route="/db_error",
+                controls=[db_error_page.build()],
+                vertical_alignment=ft.MainAxisAlignment.CENTER,
+                horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+            )
+        )
+        page.update()
 
     # Function to handle route changes
     def route_change(route):
+        """This function updates the page when the user navigates to a new route.
+        
+        It clears the current view and loads the appropriate page based on the URL.
+        It also checks if the user is logged in before showing protected pages.
+        
+        Args:
+            route: Contains information about the requested URL
+        """
+        # If database is not connected, and we're not already on the error page,
+        # redirect to the database error page
+        if not db_connected and route.route != "/db_error":
+            show_db_error_page()
+            return
+            
         page.views.clear()
 
+        if route.route == "/db_error":
+            show_db_error_page()
+            return
+            
         if not current_user and route.route != "/login":
             # Redirect to log in if not authenticated
             page.go("/login")
@@ -136,12 +202,31 @@ def main(page: ft.Page):
         page.update()
 
     def logout():
+        """Log out the current user and return to the login page.
+        
+        This clears the current_user variable and redirects to the login page.
+        """
         nonlocal current_user
         current_user = None
         page.go("/login")
 
     def on_login(user):
+        """Handle successful user login.
+        
+        This sets the current_user and redirects to the main page.
+        It checks if database is connected before proceeding.
+        
+        Args:
+            user: The User object that successfully logged in
+        """
         nonlocal current_user
+        
+        # Check if database is connected before proceeding
+        if not db_connected:
+            # Try to reconnect to the database
+            if not initialize_database():
+                return
+        
         current_user = user
         page.go("/")
 
