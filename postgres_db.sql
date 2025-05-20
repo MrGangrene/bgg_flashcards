@@ -15,6 +15,8 @@ CREATE TABLE games (
     min_players INTEGER,
     max_players INTEGER,
     image_path VARCHAR(255),
+    yearpublished INTEGER,
+    is_expansion BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -31,7 +33,7 @@ CREATE TABLE flashcards (
     id SERIAL PRIMARY KEY,
     game_id INTEGER REFERENCES games(id) ON DELETE CASCADE,
     user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
-    category VARCHAR(50) NOT NULL CHECK (category IN ('Setup', 'Rules', 'Points', 'End of the game')),
+    category VARCHAR(50) NOT NULL CHECK (category IN ('Setup', 'Rules', 'Events', 'Points', 'End of the game', 'Notes')),
     title VARCHAR(255) NOT NULL,
     content TEXT NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
