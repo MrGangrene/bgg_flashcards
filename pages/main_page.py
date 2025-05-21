@@ -8,7 +8,7 @@ class MainPage:
     It displays the user's saved games and allows them to select a game
     or add a new one.
     """
-    def __init__(self, page: ft.Page, user: User, on_game_select, on_add_game, on_logout):
+    def __init__(self, page: ft.Page, user: User | None, on_game_select, on_add_game, on_logout):
         """Create a new MainPage.
         
         Args:

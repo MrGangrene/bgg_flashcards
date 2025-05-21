@@ -37,7 +37,12 @@ class CreateFlashcardPage:
             self.game = Game.load_by_id(self.game_id)
             return self.game is not None
 
-    def save_flashcard(self, e):
+    def save_flashcard(self, _):
+        """Save the flashcard to the database.
+        
+        Args:
+            _: The button click event (unused)
+        """
         title = self.title_field.value
         content = self.content_field.value
         category = self.category_dropdown.value

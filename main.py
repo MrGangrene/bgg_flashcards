@@ -1,11 +1,12 @@
 import flet as ft
+from typing import Optional
 from database import Database, DatabaseError
+from models.user import User
 from pages.auth_page import AuthPage
 from pages.main_page import MainPage
 from pages.game_search_page import GameSearchPage
 from pages.game_detail_page import GameDetailPage
 from pages.create_flashcard_page import CreateFlashcardPage
-from pages.db_error_page import DbErrorPage
 
 
 def main(page: ft.Page):
@@ -22,7 +23,7 @@ def main(page: ft.Page):
     page.padding = 0
 
     # Application state
-    current_user = None
+    current_user: Optional[User] = None
     db_connected = False
     
     # Function to initialize database connection
@@ -43,36 +44,16 @@ def main(page: ft.Page):
                 port="5432"
             )
             db_connected = True
-            # If we were showing the error page, redirect to log in
-            if page.route == "/db_error":
-                page.go("/login")
             return True
         except DatabaseError:
             db_connected = False
-            # Show database error page
-            show_db_error_page()
+            # Handle database connection error
+            print("Failed to connect to database")
             return False
     
     # Initialize database on startup
     initialize_database()
-    
-    # Function to show database error page
-    def show_db_error_page():
-        """Show the database error page and clear other views."""
-        page.views.clear()
-        db_error_page = DbErrorPage(
-            page=page,
-            on_retry=initialize_database
-        )
-        page.views.append(
-            ft.View(
-                route="/db_error",
-                controls=[db_error_page.build()],
-                vertical_alignment=ft.MainAxisAlignment.CENTER,
-                horizontal_alignment=ft.CrossAxisAlignment.CENTER,
-            )
-        )
-        page.update()
+
 
     # Function to handle route changes
     def route_change(route):
@@ -84,17 +65,14 @@ def main(page: ft.Page):
         Args:
             route: Contains information about the requested URL
         """
-        # If database is not connected, and we're not already on the error page,
-        # redirect to the database error page
-        if not db_connected and route.route != "/db_error":
-            show_db_error_page()
+        # If database is not connected, show an error message
+        if not db_connected:
+            print("Database is not connected")
+            # Just go to login page instead of error page
+            page.go("/login")
             return
             
         page.views.clear()
-
-        if route.route == "/db_error":
-            show_db_error_page()
-            return
             
         if not current_user and route.route != "/login":
             # Redirect to log in if not authenticated
@@ -115,7 +93,7 @@ def main(page: ft.Page):
             main_page = MainPage(
                 page=page,
                 user=current_user,
-                on_game_select=lambda game_id: page.go(f"/game/{game_id}"),
+                on_game_select=lambda selected_game_id: page.go(f"/game/{selected_game_id}"),
                 on_add_game=lambda: page.go("/search"),
                 on_logout=logout
             )
@@ -146,6 +124,9 @@ def main(page: ft.Page):
             path_parts = route.route.split("/")
             game_id = int(path_parts[-3])  # Game ID is now third-to-last
             category = path_parts[-1]  # Category is now the last part
+            
+            # Type assertion for PyCharm
+            assert current_user is not None, "User must be logged in"
             
             create_page = CreateFlashcardPage(
                 page=page,
@@ -184,12 +165,15 @@ def main(page: ft.Page):
         elif route.route.startswith("/game/") and not route.route.endswith("/create_flashcard") and not route.route.endswith("/edit_flashcard"):
             # Game detail page with flashcards
             game_id = int(route.route.split("/")[-1])
+            # Type assertion for PyCharm
+            assert current_user is not None, "User must be logged in"
+            
             game_page = GameDetailPage(
                 page=page,
                 game_id=game_id,
                 user_id=current_user.id,
-                on_create_flashcard=lambda game_id, category: page.go(f"/game/{game_id}/create_flashcard/{category}"),
-                on_edit_flashcard=lambda flashcard_id: page.go(f"/game/{game_id}/flashcard/{flashcard_id}/edit_flashcard"),
+                on_create_flashcard=lambda selected_game_id, selected_category: page.go(f"/game/{selected_game_id}/create_flashcard/{selected_category}"),
+                on_edit_flashcard=lambda selected_flashcard_id: page.go(f"/game/{game_id}/flashcard/{selected_flashcard_id}/edit_flashcard"),
                 on_back=lambda: page.go("/")
             )
             page.views.append(

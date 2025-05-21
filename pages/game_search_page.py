@@ -4,7 +4,7 @@ from models.user import User
 
 
 class GameSearchPage:
-    def __init__(self, page: ft.Page, user: User, on_save_game, on_back):
+    def __init__(self, page: ft.Page, user: User | None, on_save_game, on_back):
         self.results_list = None
         self.search_field = None
         self.page = page
@@ -16,7 +16,12 @@ class GameSearchPage:
         self.bgg_results = []
         self.is_loading = False
 
-    def search_games(self, e):
+    def search_games(self, _):
+        """Search for games based on the query in the search field.
+        
+        Args:
+            _: The button click or enter key event (unused)
+        """
         query = self.search_field.value
         if query:
             self.is_loading = True
@@ -76,39 +81,39 @@ class GameSearchPage:
         self.results_list.controls.clear()
         
         # Helper function to create a game list item
-        def create_game_item(game):
+        def create_game_item(game_data):
             # Create subtitle with available game details
             subtitle_parts = []
             
             # Year published (when available)
-            if hasattr(game, 'yearpublished') and game.yearpublished:
-                subtitle_parts.append(f"({game.yearpublished})")
+            if hasattr(game_data, 'yearpublished') and game_data.yearpublished:
+                subtitle_parts.append(f"({game_data.yearpublished})")
                 
             # Rating
-            subtitle_parts.append(f"Rating: {game.avg_rating}")
+            subtitle_parts.append(f"Rating: {game_data.avg_rating}")
             
             # Player count
-            player_count = f"Players: {game.min_players if game.min_players == game.max_players else f'{game.min_players}-{game.max_players}'}"
+            player_count = f"Players: {game_data.min_players if game_data.min_players == game_data.max_players else f'{game_data.min_players}-{game_data.max_players}'}"
             subtitle_parts.append(player_count)
             
             subtitle_text = " • ".join(subtitle_parts)
             
             return ft.ListTile(
                 leading=ft.Image(
-                    src=game.image_path if game.image_path else "/placeholder.png",
+                    src=game_data.image_path if game_data.image_path else "/placeholder.png",
                     width=50,
                     height=50,
                     fit=ft.ImageFit.CONTAIN,
                 ),
                 title=ft.Row([
-                    ft.Text(game.name),
-                    ft.Text(f"ID: {game.id}", size=12, color=ft.Colors.GREY_600, italic=True)
+                    ft.Text(game_data.name),
+                    ft.Text(f"ID: {game_data.id}", size=12, color=ft.Colors.GREY_600, italic=True)
                 ]),
                 subtitle=ft.Text(subtitle_text),
                 trailing=ft.IconButton(
                     icon=ft.Icons.ADD,
                     tooltip="Add to my games",
-                    on_click=lambda e, game_id=game.id: self.save_game(game_id)
+                    on_click=lambda e, game_id=game_data.id: self.save_game(game_id)
                 )
             )
 

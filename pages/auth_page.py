@@ -71,11 +71,11 @@ class AuthPage:
             horizontal_alignment=ft.CrossAxisAlignment.CENTER,
         )
 
-    def toggle_auth_mode(self, e):
+    def toggle_auth_mode(self, _):
         """Switch between login and register modes.
         
         Args:
-            e: The click event
+            _: The click event (unused)
         """
         self.is_login_mode = not self.is_login_mode
 
@@ -91,14 +91,14 @@ class AuthPage:
         self.message.value = ""
         self.page.update()
 
-    def login(self, e):
+    def login(self, _):
         """Handle login or registration attempt.
         
         This checks credentials for login mode or creates a new account
         in register mode.
         
         Args:
-            e: The submit event
+            _: The submit event (unused)
         """
         username = self.username.value
         password = self.password.value

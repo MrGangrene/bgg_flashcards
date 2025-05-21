@@ -88,11 +88,12 @@ class GameDetailPage:
 
     def delete_flashcard(self, flashcard_id):
         # Create confirmation dialog
-        def close_dialog(e):
+        def close_dialog(_):
+            # Close dialog without taking action
             dialog.open = False
             self.page.update()
 
-        def confirm_delete(e):
+        def confirm_delete(_):
             dialog.open = False
             self.page.update()
 
@@ -121,11 +122,12 @@ class GameDetailPage:
         
     def remove_game(self):
         # Create confirmation dialog
-        def close_dialog(e):
+        def close_dialog(_):
+            # Close dialog without taking action
             dialog.open = False
             self.page.update()
 
-        def confirm_remove(e):
+        def confirm_remove(_):
             dialog.open = False
             self.page.update()
 
