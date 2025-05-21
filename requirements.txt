@@ -1,3 +1,4 @@
 flet>=0.3.2
 requests>=2.32.3
 Pillow>=11.1.0
+flet-cli>=0.10.0
