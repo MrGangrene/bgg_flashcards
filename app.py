@@ -26,12 +26,28 @@ def main(page: ft.Page):
     # Application state
     current_user: Optional[User] = None
     api_client = ApiClient("http://localhost:8000")  # Default to localhost API
-    
-    def set_api_url(url: str):
-        """Update the API URL (useful for changing between local and remote)"""
-        nonlocal api_client
-        api_client = ApiClient(url)
-        return api_client
+
+    def add_view(route_path, controls, vertical_alignment=None, horizontal_alignment=None):
+        """Helper function to add a view to the page.
+        
+        Args:
+            route_path: The route for the view
+            controls: List of controls to display
+            vertical_alignment: Optional vertical alignment
+            horizontal_alignment: Optional horizontal alignment
+        """
+        view_props = {
+            "route": route_path,
+            "controls": controls
+        }
+        
+        if vertical_alignment:
+            view_props["vertical_alignment"] = vertical_alignment
+        
+        if horizontal_alignment:
+            view_props["horizontal_alignment"] = horizontal_alignment
+            
+        page.views.append(ft.View(**view_props))
 
     # Function to handle route changes
     def route_change(route):
@@ -51,46 +67,31 @@ def main(page: ft.Page):
         page.views.clear()
             
         if route.route == "/login":
-            page.views.append(
-                ft.View(
-                    route="/login",
-                    controls=[auth_page.build()],
-                    vertical_alignment=ft.MainAxisAlignment.CENTER,
-                    horizontal_alignment=ft.CrossAxisAlignment.CENTER,
-                )
+            add_view(
+                "/login", 
+                [auth_page.build()], 
+                vertical_alignment=ft.MainAxisAlignment.CENTER,
+                horizontal_alignment=ft.CrossAxisAlignment.CENTER
             )
         elif route.route == "/":
             # Main page with user's saved games
             main_page = MainPage(
                 page=page,
                 user=current_user,
-                api_client=api_client,
                 on_game_select=lambda selected_game_id: page.go(f"/game/{selected_game_id}"),
                 on_add_game=lambda: page.go("/search"),
                 on_logout=logout
             )
-            page.views.append(
-                ft.View(
-                    route="/",
-                    controls=[main_page.build()],
-                )
-            )
+            add_view("/", [main_page.build()])
         elif route.route == "/search":
             # Game search page
             search_page = GameSearchPage(
                 page=page,
                 user=current_user,
-                api_client=api_client,
                 on_save_game=lambda: page.go("/"),
                 on_back=lambda: page.go("/")
             )
-            page.views.append(
-                ft.View(
-                    route="/search",
-                    controls=[search_page.build()],
-                )
-            )
-
+            add_view("/search", [search_page.build()])
         elif route.route.startswith("/game/") and "/create_flashcard/" in route.route:
             # Create flashcard page with category
             # Extract the game_id and category from the route
@@ -105,18 +106,11 @@ def main(page: ft.Page):
                 page=page,
                 game_id=game_id,
                 user_id=current_user.id,
-                api_client=api_client,
                 default_category=category,
                 on_save=lambda: page.go(f"/game/{game_id}"),
                 on_back=lambda: page.go(f"/game/{game_id}")
             )
-            page.views.append(
-                ft.View(
-                    route=f"/game/{game_id}/create_flashcard/{category}",
-                    controls=[create_page.build()],
-                )
-            )
-
+            add_view(f"/game/{game_id}/create_flashcard/{category}", [create_page.build()])
         elif route.route.startswith("/game/") and route.route.endswith("/edit_flashcard"):
             # Edit flashcard page - now using CreateFlashcardPage in edit mode
             # Extract the flashcard_id from the route
@@ -127,16 +121,10 @@ def main(page: ft.Page):
             edit_page = CreateFlashcardPage(
                 page=page,
                 flashcard_id=flashcard_id,
-                api_client=api_client,
                 on_save=lambda: page.go(f"/game/{game_id}"),
                 on_back=lambda: page.go(f"/game/{game_id}")
             )
-            page.views.append(
-                ft.View(
-                    route=f"/game/{game_id}/flashcard/{flashcard_id}/edit_flashcard",
-                    controls=[edit_page.build()],
-                )
-            )
+            add_view(f"/game/{game_id}/flashcard/{flashcard_id}/edit_flashcard", [edit_page.build()])
         elif route.route.startswith("/game/") and not route.route.endswith("/create_flashcard") and not route.route.endswith("/edit_flashcard"):
             # Game detail page with flashcards
             game_id = int(route.route.split("/")[-1])
@@ -147,17 +135,11 @@ def main(page: ft.Page):
                 page=page,
                 game_id=game_id,
                 user_id=current_user.id,
-                api_client=api_client,
                 on_create_flashcard=lambda selected_game_id, selected_category: page.go(f"/game/{selected_game_id}/create_flashcard/{selected_category}"),
                 on_edit_flashcard=lambda selected_flashcard_id: page.go(f"/game/{game_id}/flashcard/{selected_flashcard_id}/edit_flashcard"),
                 on_back=lambda: page.go("/")
             )
-            page.views.append(
-                ft.View(
-                    route=f"/game/{game_id}",
-                    controls=[game_page.build()],
-                )
-            )
+            add_view(f"/game/{game_id}", [game_page.build()])
 
         page.update()
 

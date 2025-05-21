@@ -2,10 +2,10 @@ from jose import JWTError, jwt
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from passlib.context import CryptContext
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
-from api.models import TokenData, User
+from api.schemas import TokenData, User
 from database import CursorFromConnectionPool
 
 # Secret key for JWT tokens - CHANGE THIS FOR PRODUCTION!
@@ -33,8 +33,9 @@ def get_user(username: str):
         cursor.execute('SELECT id, username, email, password_hash FROM users WHERE username = %s', (username,))
         user_data = cursor.fetchone()
         if user_data:
-            id, username, email, password_hash = user_data
-            return {"id": id, "username": username, "email": email, "password_hash": password_hash}
+            user_id, user_name, email, password_hash = user_data
+            return {"id": user_id, "username": user_name, "email": email, "password_hash": password_hash}
+        return None
 
 
 def authenticate_user(username: str, password: str):
@@ -51,9 +52,9 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     """Create a JWT access token."""
     to_encode = data.copy()
     if expires_delta:
-        expire = datetime.utcnow() + expires_delta
+        expire = datetime.now(timezone.utc) + expires_delta
     else:
-        expire = datetime.utcnow() + timedelta(minutes=15)
+        expire = datetime.now(timezone.utc) + timedelta(minutes=15)
     to_encode.update({"exp": expire})
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt

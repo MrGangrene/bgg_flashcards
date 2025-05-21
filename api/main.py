@@ -1,12 +1,12 @@
 from fastapi import FastAPI, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
-from fastapi.middleware.cors import CORSMiddleware
 from datetime import timedelta
+from contextlib import asynccontextmanager
 import uvicorn
 
 from database import Database, DatabaseError, CursorFromConnectionPool
-from api.models import (
-    User, UserCreate, UserLogin, Token, Game, GameSearch,
+from api.schemas import (
+    User, UserCreate, Token, Game, GameSearch,
     UserGameOperation, Flashcard, FlashcardCreate, GameSearchResults
 )
 from api.auth import (
@@ -14,21 +14,10 @@ from api.auth import (
     get_password_hash, ACCESS_TOKEN_EXPIRE_MINUTES
 )
 
-# Initialize FastAPI app
-app = FastAPI(title="BGG Flashcards API")
-
-# Add CORS middleware to allow requests from the Flet client
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],  # Replace with your specific origins for production
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-# Database initialization - Using the same connection details as the Flet app
-@app.on_event("startup")
-async def startup_event():
+# Define lifespan context manager for app startup/shutdown events
+@asynccontextmanager
+async def lifespan(_: FastAPI):
+    # Startup: Initialize database connection
     try:
         Database.initialize(
             minconn=1,
@@ -39,12 +28,30 @@ async def startup_event():
             host="10.0.0.150",
             port="5432"
         )
+        print("Database connection initialized")
     except DatabaseError as e:
         print(f"Database connection error: {str(e)}")
-
-@app.on_event("shutdown")
-async def shutdown_event():
+    
+    yield  # App is running
+    
+    # Shutdown: Close database connections
     Database.close_all_connections()
+    print("Database connections closed")
+
+# Initialize FastAPI app with lifespan
+app = FastAPI(title="BGG Flashcards API", lifespan=lifespan)
+
+# Configure CORS for the API
+origins = ["*"]  # Replace with specific origins in production
+
+@app.middleware("http")
+async def cors_middleware(request, call_next):
+    response = await call_next(request)
+    response.headers["Access-Control-Allow-Origin"] = "*"
+    response.headers["Access-Control-Allow-Credentials"] = "true"
+    response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
+    response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization"
+    return response
 
 # Authentication endpoints
 @app.post("/token", response_model=Token)
@@ -90,7 +97,7 @@ async def read_users_me(current_user: User = Depends(get_current_user)):
 
 # Game endpoints
 @app.get("/games/{game_id}", response_model=Game)
-async def get_game(game_id: int, current_user: User = Depends(get_current_user)):
+async def get_game(game_id: int, _: User = Depends(get_current_user)):
     with CursorFromConnectionPool() as cursor:
         cursor.execute(
             "SELECT id, name, avg_rating, min_players, max_players, image_path, is_expansion, yearpublished FROM games WHERE id = %s",
@@ -103,9 +110,9 @@ async def get_game(game_id: int, current_user: User = Depends(get_current_user))
                 detail="Game not found"
             )
         
-        id, name, avg_rating, min_players, max_players, image_path, is_expansion, yearpublished = game_data
+        selevted_id, name, avg_rating, min_players, max_players, image_path, is_expansion, yearpublished = game_data
         return Game(
-            id=id,
+            id=selevted_id,
             name=name,
             avg_rating=avg_rating,
             min_players=min_players,
@@ -116,7 +123,7 @@ async def get_game(game_id: int, current_user: User = Depends(get_current_user))
         )
 
 @app.post("/games/search", response_model=GameSearchResults)
-async def search_games(search: GameSearch, current_user: User = Depends(get_current_user)):
+async def search_games(search: GameSearch, _: User = Depends(get_current_user)):
     results = {"local_games": [], "local_expansions": [], "bgg_games": []}
     
     # Search in local database
@@ -149,12 +156,12 @@ async def search_games(search: GameSearch, current_user: User = Depends(get_curr
         for game_data in cursor.fetchall():
             # Handle ID search vs name search with match_rank
             if is_id_search or len(game_data) == 8:
-                id, name, avg_rating, min_players, max_players, image_path, is_expansion, yearpublished = game_data
+                selected_id, name, avg_rating, min_players, max_players, image_path, is_expansion, yearpublished = game_data
             else:
-                id, name, avg_rating, min_players, max_players, image_path, is_expansion, yearpublished, _ = game_data
+                selected_id, name, avg_rating, min_players, max_players, image_path, is_expansion, yearpublished, _ = game_data
             
             game = Game(
-                id=id,
+                id=selected_id,
                 name=name,
                 avg_rating=avg_rating,
                 min_players=min_players,
@@ -176,7 +183,7 @@ async def search_games(search: GameSearch, current_user: User = Depends(get_curr
     return results
 
 @app.post("/games/search_bgg", response_model=list[Game])
-async def search_bgg(search: GameSearch, current_user: User = Depends(get_current_user)):
+async def search_bgg(search: GameSearch, _: User = Depends(get_current_user)):
     from models.game import Game as GameModel
     
     # Call the existing BGG search function
@@ -213,9 +220,9 @@ async def get_user_games(current_user: User = Depends(get_current_user)):
         
         games = []
         for game_data in cursor.fetchall():
-            id, name, avg_rating, min_players, max_players, image_path, is_expansion, yearpublished = game_data
+            selected_id, name, avg_rating, min_players, max_players, image_path, is_expansion, yearpublished = game_data
             games.append(Game(
-                id=id,
+                id=selected_id,
                 name=name,
                 avg_rating=avg_rating,
                 min_players=min_players,
@@ -258,7 +265,7 @@ async def remove_game(game_id: int, current_user: User = Depends(get_current_use
 
 # Flashcard endpoints
 @app.get("/games/{game_id}/flashcards", response_model=list[Flashcard])
-async def get_game_flashcards(game_id: int, current_user: User = Depends(get_current_user)):
+async def get_game_flashcards(game_id: int, _: User = Depends(get_current_user)):
     with CursorFromConnectionPool() as cursor:
         cursor.execute(
             """
@@ -272,9 +279,9 @@ async def get_game_flashcards(game_id: int, current_user: User = Depends(get_cur
         
         flashcards = []
         for flashcard_data in cursor.fetchall():
-            id, game_id, user_id, category, title, content = flashcard_data
+            selected_id, game_id, user_id, category, title, content = flashcard_data
             flashcards.append(Flashcard(
-                id=id,
+                id=selected_id,
                 game_id=game_id,
                 user_id=user_id,
                 category=category,
@@ -315,7 +322,7 @@ async def create_flashcard(flashcard: FlashcardCreate, current_user: User = Depe
         )
 
 @app.get("/flashcards/{flashcard_id}", response_model=Flashcard)
-async def get_flashcard(flashcard_id: int, current_user: User = Depends(get_current_user)):
+async def get_flashcard(flashcard_id: int, _: User = Depends(get_current_user)):
     with CursorFromConnectionPool() as cursor:
         cursor.execute(
             "SELECT game_id, user_id, category, title, content FROM flashcards WHERE id = %s",

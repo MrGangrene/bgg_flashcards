@@ -1,5 +1,9 @@
 import hashlib
+from passlib.context import CryptContext
 from database import CursorFromConnectionPool, DatabaseError
+
+# Create a shared CryptContext object (same configuration as API)
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 
 class User:
@@ -31,8 +35,8 @@ class User:
             The user's database ID
         """
         with CursorFromConnectionPool() as cursor:
-            # Hash the password before saving
-            password_hash = self._hash_password(self.password)
+            # Hash the password before saving using bcrypt
+            password_hash = pwd_context.hash(self.password)
 
             cursor.execute('INSERT INTO users (username, email, password_hash) VALUES (%s, %s, %s) RETURNING id',
                            (self.username, self.email, password_hash))
@@ -88,11 +92,19 @@ class User:
         Returns:
             True if the password matches, False otherwise
         """
-        return self._hash_password(password_to_check) == self.password_hash
+        try:
+            # Try to verify using bcrypt first (for newer accounts)
+            if pwd_context.identify(self.password_hash):
+                return pwd_context.verify(password_to_check, self.password_hash)
+        except Exception:
+            pass
+            
+        # Fall back to SHA-256 for older accounts
+        return self._legacy_hash_password(password_to_check) == self.password_hash
 
     @staticmethod
-    def _hash_password(password):
-        """Hash a password using SHA-256.
+    def _legacy_hash_password(password):
+        """Hash a password using SHA-256 (legacy method).
         
         Args:
             password: The password to hash
@@ -100,7 +112,7 @@ class User:
         Returns:
             The hashed password as a hexadecimal string
         """
-        # Simple hashing for demonstration - in a real app, use a proper password hashing library like bcrypt
+        # Keep this method for backward compatibility with existing accounts
         return hashlib.sha256(password.encode()).hexdigest()
 
     def get_saved_games(self):

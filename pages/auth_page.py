@@ -52,7 +52,7 @@ class AuthPage:
             on_submit=self.login
         )  # For registration
 
-        self.message = ft.Text("", color=ft.colors.RED)
+        self.message = ft.Text("", color=ft.Colors.RED)
 
         self.login_btn = ft.ElevatedButton(text="Login", on_click=self.login)
         self.register_btn = ft.TextButton(text="Register", on_click=self.toggle_auth_mode)
@@ -147,7 +147,7 @@ class AuthPage:
                     return
                 
                 self.message.value = "Registration successful! You can now login."
-                self.message.color = ft.colors.GREEN
+                self.message.color = ft.Colors.GREEN
                 self.toggle_auth_mode(None)
         except Exception as e:
             # Show a message about connection error
