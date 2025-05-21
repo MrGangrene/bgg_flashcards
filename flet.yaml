@@ -1,0 +1,42 @@
+app:
+  name: "BGG Flashcards"
+  identifier: "com.mrgangrene.bggflashcards"
+  version: "1.0.0"
+  build: 1
+  icon: "assets/icons/app-icon.png"
+  description: "Create and study flashcards for board games"
+  publisher: "MrGangrene"
+  copyright: "© 2024 MrGangrene"
+  minimum_os_version: "15.0"
+
+ios:
+  development_team: "" # Your Apple Developer Team ID (required for iOS builds)
+  privacy_manifest:
+    nstracking_usage_description: "This app does not track you"
+    nsphoto_library_usage_description: "This app does not use your photos"
+    nsphoto_library_add_usage_description: "This app does not add to your photos"
+    nsimage_capture_usage_description: "This app does not use your images"
+  
+  # Required config for iOS
+  info_plist:
+    UILaunchScreen:
+      UIColorName: "#FFFFFF"
+      UIImageName: "LaunchImage"
+      UIImageRespectsSafeAreaInsets: true
+      
+  # Additional icon sizes for iOS
+  icons:
+    - icon: "assets/icons/app-icon-20.png"
+      size: "20x20"
+    - icon: "assets/icons/app-icon-29.png"
+      size: "29x29"
+    - icon: "assets/icons/app-icon-40.png"
+      size: "40x40"
+    - icon: "assets/icons/app-icon-60.png"
+      size: "60x60"
+    - icon: "assets/icons/app-icon-76.png"
+      size: "76x76"
+    - icon: "assets/icons/app-icon-83.5.png"
+      size: "83.5x83.5"
+    - icon: "assets/icons/app-icon-1024.png"
+      size: "1024x1024"

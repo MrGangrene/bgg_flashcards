@@ -1,6 +1,6 @@
 import flet as ft
 from models.user import User
-from database import DatabaseError
+from client.api_client import ApiClient
 
 
 class AuthPage:
@@ -8,12 +8,13 @@ class AuthPage:
     
     It allows users to create an account or log in to an existing one.
     """
-    def __init__(self, page: ft.Page, on_login):
+    def __init__(self, page: ft.Page, on_login, api_client=None):
         """Create a new AuthPage.
         
         Args:
             page: The Flet page this will be displayed on
             on_login: Function to call when a user successfully logs in
+            api_client: The API client for server communication
         """
         self.is_login_mode = None
         self.register_btn = None
@@ -24,6 +25,7 @@ class AuthPage:
         self.username = None
         self.page = page
         self.on_login = on_login
+        self.api_client = api_client or ApiClient()
 
     def build(self):
         """Create the login/register page UI.
@@ -50,7 +52,7 @@ class AuthPage:
             on_submit=self.login
         )  # For registration
 
-        self.message = ft.Text("", color=ft.Colors.RED)
+        self.message = ft.Text("", color=ft.colors.RED)
 
         self.login_btn = ft.ElevatedButton(text="Login", on_click=self.login)
         self.register_btn = ft.TextButton(text="Register", on_click=self.toggle_auth_mode)
@@ -110,8 +112,22 @@ class AuthPage:
 
         try:
             if self.is_login_mode:
-                user = User.load_by_username(username)
-                if user and user.verify_password(password):
+                success = self.api_client.login(username, password)
+                if success:
+                    # Get user info from API
+                    user_info = self.api_client.get_user_info()
+                    if "error" in user_info:
+                        self.message.value = f"Error: {user_info.get('error', 'Unknown error')}"
+                        self.page.update()
+                        return
+                    
+                    # Create User object
+                    user = User(
+                        username=user_info["username"],
+                        email=user_info["email"],
+                        password="",  # Password not stored in User object
+                        id=user_info["id"]
+                    )
                     self.on_login(user)
                 else:
                     self.message.value = "Invalid username or password"
@@ -123,21 +139,17 @@ class AuthPage:
                     self.page.update()
                     return
 
-                # Check if username already exists
-                existing_user = User.load_by_username(username)
-                if existing_user:
-                    self.message.value = "Username already exists"
+                # Register new user with API
+                result = self.api_client.register(username, email, password)
+                if "error" in result:
+                    self.message.value = f"Registration error: {result.get('error', 'Unknown error')}"
                     self.page.update()
                     return
-
-                # Create new user
-                user = User(username, email, password)
-                user.save_to_db()
+                
                 self.message.value = "Registration successful! You can now login."
+                self.message.color = ft.colors.GREEN
                 self.toggle_auth_mode(None)
-        except DatabaseError:
-            # Show a message about database connection error
-            self.message.value = "Cannot connect to the database. Please try again later."
+        except Exception as e:
+            # Show a message about connection error
+            self.message.value = f"Error: {str(e)}"
             self.page.update()
-            # Redirect to database error page if it exists
-            self.page.go("/db_error")
