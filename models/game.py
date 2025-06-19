@@ -8,7 +8,7 @@ class Game:
     
     It handles storing game information and fetching data from BoardGameGeek.
     """
-    def __init__(self, name, avg_rating, min_players, max_players, image_path, id=None, is_expansion=0, yearpublished=None):
+    def __init__(self, name, avg_rating, min_players, max_players, image_path, game_id=None, is_expansion=0, yearpublished=None):
         """Create a new Game object.
         
         Args:
@@ -17,11 +17,11 @@ class Game:
             min_players: The minimum number of players
             max_players: The maximum number of players
             image_path: URL to the game's image
-            id: The game's database ID (None for new games)
+            game_id: The game's database ID (None for new games)
             is_expansion: Whether this game is an expansion (0 or 1)
             yearpublished: The year the game was published
         """
-        self.id = id
+        self.id = game_id
         self.name = name
         self.avg_rating = avg_rating
         self.min_players = min_players
@@ -252,7 +252,7 @@ class Game:
                     pass
                 
             # Create game with BGG ID as the game ID
-            game = cls(name, avg_rating, min_players, max_players, image_path, id=int(bgg_id), 
+            game = cls(name, avg_rating, min_players, max_players, image_path, game_id=int(bgg_id),
                        is_expansion=is_expansion, yearpublished=yearpublished)
             game.save_to_db()
             

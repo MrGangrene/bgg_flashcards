@@ -30,8 +30,28 @@ class GameSearchPage:
             # First check if it's an ID search
             is_id_search = query.isdigit()
             
-            # If not an ID search, update local database from BGG first
-            if not is_id_search:
+            if is_id_search:
+                # For ID search, get game details directly from BGG
+                self.results_list.controls.clear()
+                self.results_list.controls.append(
+                    ft.Column([
+                        ft.ProgressRing(),
+                        ft.Text("Fetching game details from BoardGameGeek..."),
+                    ], alignment=ft.MainAxisAlignment.CENTER)
+                )
+                self.page.update()
+                
+                # Get game details by BGG ID
+                game = Game.get_bgg_game_details(query)
+                if game:
+                    self.local_results = [game]
+                    self.local_expansions = []
+                else:
+                    self.local_results = []
+                    self.local_expansions = []
+                self.bgg_results = []
+            else:
+                # If not an ID search, update local database from BGG first
                 # Update message to show we're fetching from BGG
                 self.results_list.controls.clear()
                 self.results_list.controls.append(
@@ -44,22 +64,22 @@ class GameSearchPage:
                 
                 # Fetch and import BGG data to update local database
                 Game.search_bgg_api(query)
-            
-            # Now search the local database (which should include any new BGG data)
-            self.results_list.controls.clear()
-            self.results_list.controls.append(
-                ft.Column([
-                    ft.ProgressRing(),
-                    ft.Text("Retrieving games from database..."),
-                ], alignment=ft.MainAxisAlignment.CENTER)
-            )
-            self.page.update()
-            
-            # Get search results (now with updated database)
-            results = Game.search_by_name(query)
-            self.local_results = results["local_games"]
-            self.local_expansions = results["local_expansions"]
-            self.bgg_results = []  # We're not showing BGG results separately
+                
+                # Now search the local database (which should include any new BGG data)
+                self.results_list.controls.clear()
+                self.results_list.controls.append(
+                    ft.Column([
+                        ft.ProgressRing(),
+                        ft.Text("Retrieving games from database..."),
+                    ], alignment=ft.MainAxisAlignment.CENTER)
+                )
+                self.page.update()
+                
+                # Get search results (now with updated database)
+                results = Game.search_by_name(query)
+                self.local_results = results["local_games"]
+                self.local_expansions = results["local_expansions"]
+                self.bgg_results = []  # We're not showing BGG results separately
             
             self.is_loading = False
             self.update_results_list()
