@@ -159,6 +159,62 @@ class Game:
         """Search for games using the BoardGameGeek API.
         
         Args:
+            name_query: The name to search for (or BGG ID as string)
+            cancellation_checker: Optional function that returns True if task should be cancelled
+            immediate_callback: Optional callback to call with basic results immediately
+            
+        Returns:
+            A list of Game objects with detailed data from BoardGameGeek
+        """
+        # Check if this is a direct ID search (numeric string)
+        if name_query.isdigit():
+            # For ID searches, skip the search API and go directly to thing API
+            print(f"Direct BGG ID search for game {name_query}")
+            try:
+                game_details = cls.get_bgg_game_details(name_query)
+                if game_details:
+                    game_details._source = "BoardGameGeek"
+                    
+                    # After getting the game by ID, trigger a background search by name
+                    # to find and update all variants/editions of this game
+                    game_name = game_details.name
+                    print(f"Triggering background name search for '{game_name}' after ID lookup")
+                    
+                    # Use a separate thread to avoid blocking the current response
+                    import threading
+                    def background_name_search():
+                        try:
+                            # Small delay to ensure the current ID result is returned first
+                            import time
+                            time.sleep(1)
+                            
+                            # Search BGG by name to find all variants/editions
+                            print(f"Background: Searching BGG by name '{game_name}'")
+                            name_results = cls._search_bgg_by_name(game_name, cancellation_checker)
+                            print(f"Background: Found {len(name_results)} additional games by name '{game_name}'")
+                        except Exception as e:
+                            print(f"Background name search error after ID lookup: {e}")
+                    
+                    # Start the background name search
+                    thread = threading.Thread(target=background_name_search, daemon=True)
+                    thread.start()
+                    
+                    return [game_details]
+                else:
+                    print(f"No game found for BGG ID {name_query}")
+                    return []
+            except Exception as e:
+                print(f"Error fetching BGG game by ID {name_query}: {e}")
+                return []
+        
+        # For name searches, use the search API
+        return cls._search_bgg_by_name(name_query, cancellation_checker, immediate_callback)
+    
+    @classmethod
+    def _search_bgg_by_name(cls, name_query, cancellation_checker=None, immediate_callback=None):
+        """Search BGG by name (extracted for reuse in ID searches).
+        
+        Args:
             name_query: The name to search for
             cancellation_checker: Optional function that returns True if task should be cancelled
             immediate_callback: Optional callback to call with basic results immediately
@@ -166,7 +222,6 @@ class Game:
         Returns:
             A list of Game objects with detailed data from BoardGameGeek
         """
-        """Search for games using the BGG XML API2 and update local database"""
         url = f"https://boardgamegeek.com/xmlapi2/search?query={name_query}&type=boardgame"
         try:
             response = requests.get(url)
