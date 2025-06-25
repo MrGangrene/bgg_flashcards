@@ -409,14 +409,17 @@ class Game:
             print(f"Error getting BGG game details: {e}")
             return None
 
-    def get_flashcards(self):
+    def get_flashcards(self, current_user_id=None):
         """Get all flashcards for this game.
         
+        Args:
+            current_user_id: The ID of the current user (to show their private cards)
+        
         Returns:
-            A list of Flashcard objects for this game
+            A list of Flashcard objects for this game (filtered by privacy)
         """
         from models.flashcard import Flashcard
-        return Flashcard.get_by_game_id(self.id)
+        return Flashcard.get_by_game_id(self.id, current_user_id)
     
     def get_image_src(self):
         """Get the image source for display in UI.

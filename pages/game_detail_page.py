@@ -26,7 +26,7 @@ class GameDetailPage:
         if not self.game:
             return False
 
-        self.flashcards = self.game.get_flashcards()
+        self.flashcards = self.game.get_flashcards(self.user_id)
         return True
 
     def change_category(self, category):
@@ -102,7 +102,7 @@ class GameDetailPage:
             Flashcard.delete_by_id(flashcard_id)
 
             # Reload flashcards
-            self.flashcards = self.game.get_flashcards()
+            self.flashcards = self.game.get_flashcards(self.user_id)
             self.update_flashcards_view()
 
         dialog = ft.AlertDialog(

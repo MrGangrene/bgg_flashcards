@@ -8,6 +8,7 @@ class CreateFlashcardPage:
         self.content_field = None
         self.category_dropdown = None
         self.title_field = None
+        self.private_checkbox = None
         self.message = None
         self.page = page
         self.game_id = game_id
@@ -46,6 +47,7 @@ class CreateFlashcardPage:
         title = self.title_field.value
         content = self.content_field.value
         category = self.category_dropdown.value
+        is_private = self.private_checkbox.content.value
 
         if not title or not content or not category:
             self.message.value = "Please fill all fields"
@@ -57,6 +59,7 @@ class CreateFlashcardPage:
             self.flashcard.title = title
             self.flashcard.content = content
             self.flashcard.category = category
+            self.flashcard.is_private = is_private
             self.flashcard.update()
             self.message.value = "Flashcard updated successfully"
             self.message.color = ft.Colors.GREEN
@@ -69,12 +72,13 @@ class CreateFlashcardPage:
                 updated_content = existing_flashcard.content + "\n\n" + content
                 existing_flashcard.content = updated_content
                 existing_flashcard.category = category
+                existing_flashcard.is_private = is_private
                 existing_flashcard.update()
                 self.message.value = "Flashcard content appended successfully"
                 self.message.color = ft.Colors.GREEN
             else:
                 # Create new flashcard
-                flashcard = Flashcard(self.game_id, self.user_id, category, title, content)
+                flashcard = Flashcard(self.game_id, self.user_id, category, title, content, is_private=is_private)
                 flashcard.save_to_db()
                 self.message.value = "New flashcard created successfully"
                 self.message.color = ft.Colors.GREEN
@@ -134,6 +138,16 @@ class CreateFlashcardPage:
             width=400,
         )
 
+        self.private_checkbox = ft.Container(
+            content=ft.Checkbox(
+                label="Keep note Private",
+                value=self.flashcard.is_private if self.is_edit_mode else False,
+                tooltip="When checked, only you can see this flashcard",
+            ),
+            alignment=ft.alignment.center,
+            width=400,
+        )
+
         button_text = "Update Flashcard" if self.is_edit_mode else "Save Flashcard"
         save_button = ft.ElevatedButton(button_text, on_click=self.save_flashcard)
 
@@ -145,6 +159,7 @@ class CreateFlashcardPage:
                 self.category_dropdown,
                 self.title_field,
                 self.content_field,
+                self.private_checkbox,
                 save_button,
             ],
             expand=True,

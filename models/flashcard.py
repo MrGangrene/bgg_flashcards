@@ -6,7 +6,7 @@ class Flashcard:
     
     Flashcards contain information that helps users learn about games.
     """
-    def __init__(self, game_id, user_id, category, title, content, id=None):
+    def __init__(self, game_id, user_id, category, title, content, id=None, is_private=False):
         """Create a new Flashcard object.
         
         Args:
@@ -23,6 +23,7 @@ class Flashcard:
         self.category = category
         self.title = title
         self.content = content
+        self.is_private = is_private
 
     def save_to_db(self):
         """Save the flashcard to the database.
@@ -32,9 +33,9 @@ class Flashcard:
         """
         with CursorFromConnectionPool() as cursor:
             cursor.execute('''
-                INSERT INTO flashcards (game_id, user_id, category, title, content) 
-                VALUES (%s, %s, %s, %s, %s) RETURNING id
-            ''', (self.game_id, self.user_id, self.category, self.title, self.content))
+                INSERT INTO flashcards (game_id, user_id, category, title, content, is_private) 
+                VALUES (%s, %s, %s, %s, %s, %s) RETURNING id
+            ''', (self.game_id, self.user_id, self.category, self.title, self.content, self.is_private))
             self.id = cursor.fetchone()[0]
             return self.id
     
@@ -52,39 +53,50 @@ class Flashcard:
         """
         with CursorFromConnectionPool() as cursor:
             cursor.execute('''
-                SELECT id, game_id, user_id, category, title, content
+                SELECT id, game_id, user_id, category, title, content, is_private
                 FROM flashcards
                 WHERE game_id = %s AND user_id = %s AND title = %s
             ''', (game_id, user_id, title))
             
             flashcard_data = cursor.fetchone()
             if flashcard_data:
-                id, game_id, user_id, category, title, content = flashcard_data
-                return cls(game_id, user_id, category, title, content, id)
+                id, game_id, user_id, category, title, content, is_private = flashcard_data
+                return cls(game_id, user_id, category, title, content, id, is_private)
             return None
 
     @classmethod
-    def get_by_game_id(cls, game_id):
+    def get_by_game_id(cls, game_id, current_user_id=None):
         """Get all flashcards for a specific game.
         
         Args:
             game_id: The ID of the game to get flashcards for
+            current_user_id: The ID of the current user (to show their private cards)
             
         Returns:
-            A list of Flashcard objects for the game
+            A list of Flashcard objects for the game (filtered by privacy)
         """
         with CursorFromConnectionPool() as cursor:
-            cursor.execute('''
-                SELECT id, game_id, user_id, category, title, content
-                FROM flashcards
-                WHERE game_id = %s
-                ORDER BY category, created_at
-            ''', (game_id,))
+            if current_user_id:
+                # Show public cards + private cards belonging to the current user
+                cursor.execute('''
+                    SELECT id, game_id, user_id, category, title, content, is_private
+                    FROM flashcards
+                    WHERE game_id = %s AND (is_private = FALSE OR user_id = %s)
+                    ORDER BY category, created_at
+                ''', (game_id, current_user_id))
+            else:
+                # Show only public cards
+                cursor.execute('''
+                    SELECT id, game_id, user_id, category, title, content, is_private
+                    FROM flashcards
+                    WHERE game_id = %s AND is_private = FALSE
+                    ORDER BY category, created_at
+                ''', (game_id,))
 
             flashcards = []
             for flashcard_data in cursor.fetchall():
-                id, game_id, user_id, category, title, content = flashcard_data
-                flashcard = cls(game_id, user_id, category, title, content, id)
+                id, game_id, user_id, category, title, content, is_private = flashcard_data
+                flashcard = cls(game_id, user_id, category, title, content, id, is_private)
                 flashcards.append(flashcard)
 
             return flashcards
@@ -114,12 +126,12 @@ class Flashcard:
             A Flashcard object if found, None otherwise
         """
         with CursorFromConnectionPool() as cursor:
-            cursor.execute('SELECT game_id, user_id, category, title, content FROM flashcards WHERE id = %s', 
+            cursor.execute('SELECT game_id, user_id, category, title, content, is_private FROM flashcards WHERE id = %s', 
                            (flashcard_id,))
             flashcard_data = cursor.fetchone()
             if flashcard_data:
-                game_id, user_id, category, title, content = flashcard_data
-                return cls(game_id, user_id, category, title, content, flashcard_id)
+                game_id, user_id, category, title, content, is_private = flashcard_data
+                return cls(game_id, user_id, category, title, content, flashcard_id, is_private)
             return None
             
     def update(self):
@@ -131,7 +143,7 @@ class Flashcard:
         with CursorFromConnectionPool() as cursor:
             cursor.execute('''
                 UPDATE flashcards 
-                SET category = %s, title = %s, content = %s
+                SET category = %s, title = %s, content = %s, is_private = %s
                 WHERE id = %s
-            ''', (self.category, self.title, self.content, self.id))
+            ''', (self.category, self.title, self.content, self.is_private, self.id))
             return True
