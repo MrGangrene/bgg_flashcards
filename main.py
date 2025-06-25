@@ -1,3 +1,42 @@
+"""BGG Flashcards Application Main Module.
+
+This is the main entry point for the BGG Flashcards application, a Flet-based
+desktop/web application for managing board game flashcards with BoardGameGeek integration.
+
+The application provides:
+- User authentication and registration
+- Board game search and discovery via BoardGameGeek API
+- Personal game collection management
+- Flashcard creation and organization with privacy controls
+- Real-time search with background BGG API integration
+- Local image storage and management
+
+Architecture:
+    - Uses Flet framework for cross-platform UI
+    - PostgreSQL database with connection pooling
+    - Page-based navigation with route management
+    - Background task management for API operations
+    - Model-based data architecture
+
+Navigation Routes:
+    /login - User authentication page
+    / - Main page with user's game collection
+    /search - Game search and discovery
+    /game/{id} - Game details with flashcards
+    /game/{id}/create_flashcard/{category} - Create new flashcard
+    /game/{id}/flashcard/{id}/edit_flashcard - Edit existing flashcard
+
+Usage:
+    python main.py
+    
+Environment Variables:
+    DB_NAME - Database name (default: bgg_flashcards)
+    DB_USER - Database username
+    DB_PASSWORD - Database password
+    DB_HOST - Database host (default: localhost)
+    DB_PORT - Database port (default: 5432)
+"""
+
 import flet as ft
 import os
 from typing import Optional

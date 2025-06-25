@@ -1,3 +1,17 @@
+"""Game Search Page Module.
+
+This module contains the GameSearchPage class which provides the UI for searching
+and discovering board games from both local database and BoardGameGeek API.
+
+The page supports:
+- Real-time search with immediate local results
+- Background BGG API integration
+- Both name-based and ID-based searches
+- Game saving to user collections
+- Expansion discovery and management
+- Background task management and cancellation
+"""
+
 import flet as ft
 from models.game import Game
 from models.user import User
@@ -5,7 +19,46 @@ from utils.background_tasks import background_manager
 
 
 class GameSearchPage:
+    """UI page for searching and discovering board games.
+    
+    This page provides a comprehensive game search interface that combines
+    local database searches with real-time BoardGameGeek API integration.
+    It supports both immediate local results and background BGG fetching.
+    
+    Search Types:
+        - Name search: Searches by game name in local DB + BGG API
+        - ID search: Direct BGG ID lookup with background name search
+        
+    Features:
+        - Immediate local search results
+        - Background BGG API integration with progress indicators
+        - Game saving to user collections
+        - Expansion discovery and display
+        - Task cancellation for interrupted searches
+        
+    Attributes:
+        page (ft.Page): The Flet page object
+        user (User): Current logged-in user
+        on_save_game (callable): Callback after game is saved
+        on_back (callable): Callback when user goes back
+        local_results (list): Games from local database
+        local_expansions (list): Expansions from local database
+        bgg_results (list): Games from BGG API
+        is_loading (bool): Whether background search is in progress
+        
+    UI Components:
+        - search_field: Text input for search queries
+        - results_list: Display area for search results
+    """
     def __init__(self, page: ft.Page, user: User | None, on_save_game, on_back):
+        """Initialize the GameSearchPage.
+        
+        Args:
+            page (ft.Page): The Flet page object
+            user (User, optional): Current logged-in user (None if not logged in)
+            on_save_game (callable): Callback function called after game is saved
+            on_back (callable): Callback function called when user goes back
+        """
         self.results_list = None
         self.search_field = None
         self.page = page
@@ -20,8 +73,15 @@ class GameSearchPage:
     def search_games(self, _):
         """Search for games based on the query in the search field.
         
+        Determines search type (ID vs name) and delegates to appropriate handler.
+        Cancels any existing background searches before starting new one.
+        
         Args:
             _: The button click or enter key event (unused)
+            
+        Search Logic:
+            - Numeric query: Treated as BGG ID search
+            - Text query: Treated as name search
         """
         query = self.search_field.value
         if query:
@@ -36,7 +96,20 @@ class GameSearchPage:
                 self.show_immediate_results_for_name(query)
     
     def show_immediate_results_for_id(self, game_id):
-        """Show immediate results for ID search and fetch BGG data in background."""
+        """Handle BGG ID searches with immediate local results and background fetch.
+        
+        For ID searches, prioritizes local database results and shows them immediately,
+        then refreshes with updated BGG data in the background.
+        
+        Args:
+            game_id (str): The BGG ID to search for
+            
+        Process:
+            1. Check local database for existing game
+            2. If found: Show immediately + background refresh
+            3. If not found: Show loading + background fetch
+            4. Trigger expansion search in background
+        """
         # First, check if we already have this game locally
         existing_game = Game.load_by_id(game_id)
         
@@ -89,7 +162,20 @@ class GameSearchPage:
             background_manager.fetch_bgg_data_in_background(f"bgg_id_{game_id}", on_fetch_complete)
     
     def show_immediate_results_for_name(self, query):
-        """Show immediate local results for name search and fetch BGG data in background."""
+        """Handle name searches with immediate local results and background BGG fetch.
+        
+        Shows local database results immediately, then enriches with BGG API
+        results in the background for a responsive user experience.
+        
+        Args:
+            query (str): The game name to search for
+            
+        Process:
+            1. Search local database immediately
+            2. Display local results
+            3. Start background BGG API search
+            4. Update results when BGG search completes
+        """
         # Show local results immediately
         results = Game.search_by_name(query)
         self.local_results = results["local_games"]

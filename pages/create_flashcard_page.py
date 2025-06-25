@@ -1,10 +1,66 @@
+"""Create Flashcard Page Module.
+
+This module contains the CreateFlashcardPage class which provides the UI
+for creating new flashcards and editing existing ones.
+
+The page supports:
+- Creating new flashcards for a specific game
+- Editing existing flashcards
+- Category selection and organization
+- Privacy settings for flashcards
+- Content appending to existing flashcards with same title
+"""
+
 import flet as ft
 from models.game import Game
 from models.flashcard import Flashcard
 
 
 class CreateFlashcardPage:
+    """UI page for creating and editing flashcards.
+    
+    This page can operate in two modes:
+    1. Create mode: Creating a new flashcard for a game
+    2. Edit mode: Editing an existing flashcard
+    
+    The page includes form fields for title, content, category selection,
+    and privacy settings. It handles both new flashcard creation and
+    content appending to existing flashcards with matching titles.
+    
+    Attributes:
+        page (ft.Page): The Flet page object
+        game_id (int): ID of the game this flashcard is for
+        user_id (int): ID of the user creating/editing the flashcard
+        flashcard_id (int, optional): ID of flashcard being edited (None for create mode)
+        default_category (str, optional): Default category to select
+        on_save (callable): Callback function called after successful save
+        on_back (callable): Callback function called when user goes back
+        is_edit_mode (bool): True if editing existing flashcard, False for new
+        categories (list): Available flashcard categories
+        
+    UI Components:
+        - title_field: Text input for flashcard title
+        - content_field: Multi-line text input for flashcard content
+        - category_dropdown: Dropdown for category selection
+        - private_checkbox: Checkbox for privacy setting
+        - message: Text component for user feedback
+    """
     def __init__(self, page: ft.Page, game_id=None, user_id=None, flashcard_id=None, default_category=None, on_save=None, on_back=None):
+        """Initialize the CreateFlashcardPage.
+        
+        Args:
+            page (ft.Page): The Flet page object
+            game_id (int, optional): ID of the game for new flashcards
+            user_id (int, optional): ID of the user creating the flashcard
+            flashcard_id (int, optional): ID of flashcard to edit (triggers edit mode)
+            default_category (str, optional): Default category to select
+            on_save (callable, optional): Callback function after successful save
+            on_back (callable, optional): Callback function when user goes back
+            
+        Note:
+            Either (game_id, user_id) for create mode or flashcard_id for edit mode
+            must be provided. Edit mode will load game_id and user_id from the flashcard.
+        """
         self.content_field = None
         self.category_dropdown = None
         self.title_field = None
@@ -23,6 +79,18 @@ class CreateFlashcardPage:
         self.categories = ["Setup", "Rules", "Events", "Points", "End of the game", "Notes"]
 
     def load_data(self):
+        """Load required data based on the page mode.
+        
+        In edit mode: Loads the flashcard and associated game data
+        In create mode: Loads the game data
+        
+        Returns:
+            bool: True if data loaded successfully, False otherwise
+            
+        Note:
+            This method must be called before building the UI to ensure
+            all required data is available.
+        """
         if self.is_edit_mode:
             # Edit mode: Load flashcard and game data
             self.flashcard = Flashcard.load_by_id(self.flashcard_id)
@@ -41,8 +109,20 @@ class CreateFlashcardPage:
     def save_flashcard(self, _):
         """Save the flashcard to the database.
         
+        Handles both new flashcard creation and updates to existing flashcards.
+        For new flashcards with duplicate titles, appends content to existing flashcard.
+        
         Args:
             _: The button click event (unused)
+            
+        Behavior:
+            - Edit mode: Updates the existing flashcard
+            - Create mode with new title: Creates new flashcard
+            - Create mode with existing title: Appends content to existing flashcard
+            
+        Validation:
+            Ensures all required fields (title, content, category) are filled
+            before attempting to save.
         """
         title = self.title_field.value
         content = self.content_field.value
@@ -87,6 +167,23 @@ class CreateFlashcardPage:
         self.on_save()
 
     def build(self):
+        """Build and return the UI for the create/edit flashcard page.
+        
+        Creates the complete UI including header, form fields, and save button.
+        Handles both create and edit modes with appropriate field pre-population.
+        
+        Returns:
+            ft.Column: The main UI column containing all page elements
+            
+        UI Structure:
+            - Header with back button and page title
+            - Form fields (category, title, content, privacy)
+            - Save/Update button
+            - Error/success message display
+            
+        Error Handling:
+            If required data fails to load, displays error message with back button.
+        """
         if not self.load_data():
             error_message = "Flashcard not found" if self.is_edit_mode else "Game not found"
             return ft.Column(

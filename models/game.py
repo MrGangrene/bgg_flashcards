@@ -1,3 +1,17 @@
+"""Game Model Module.
+
+This module contains the Game class which handles board game data management,
+including integration with BoardGameGeek (BGG) API for fetching game information,
+image processing, and database operations.
+
+The Game class provides functionality for:
+- Searching and storing board game information
+- Integration with BoardGameGeek XML API
+- Local image storage and management
+- Database CRUD operations
+- Background data synchronization
+"""
+
 from database import CursorFromConnectionPool
 import requests
 import xml.etree.ElementTree as Et
@@ -5,22 +19,41 @@ from utils.image_service import ImageService
 
 
 class Game:
-    """This class represents a board game.
+    """Represents a board game with all its associated data.
     
-    It handles storing game information and fetching data from BoardGameGeek.
+    This class handles board game information including basic details (name, ratings,
+    player counts), images, and integration with the BoardGameGeek (BGG) API.
+    
+    The class supports both local database storage and remote BGG API fetching,
+    with automatic image downloading and local storage for performance.
+    
+    Attributes:
+        id (int): Local database ID (primary key)
+        name (str): Game name
+        avg_rating (float): Average rating from BGG (0.0-10.0)
+        min_players (int): Minimum number of players
+        max_players (int): Maximum number of players  
+        image_path (str): URL to game image on BGG
+        game_id (int): BoardGameGeek ID (same as id for BGG games)
+        is_expansion (int): 1 if expansion, 0 if base game
+        yearpublished (int): Year the game was published
+        
+    Private Attributes:
+        _source (str): Indicates data source ('Local Database', 'BoardGameGeek', etc.)
+        _is_search_data (bool): True if created from BGG search API (basic data only)
     """
     def __init__(self, name, avg_rating, min_players, max_players, image_path, game_id=None, is_expansion=0, yearpublished=None):
-        """Create a new Game object.
+        """Initialize a new Game instance.
         
         Args:
-            name: The name of the game
-            avg_rating: The average user rating (0-10)
-            min_players: The minimum number of players
-            max_players: The maximum number of players
-            image_path: URL to the game's image
-            game_id: The game's database ID (None for new games)
-            is_expansion: Whether this game is an expansion (0 or 1)
-            yearpublished: The year the game was published
+            name (str): The name of the game
+            avg_rating (float): Average rating from BGG (0.0-10.0)
+            min_players (int): Minimum number of players
+            max_players (int): Maximum number of players
+            image_path (str): URL to the game's image
+            game_id (int, optional): BoardGameGeek ID. If None, will be auto-assigned
+            is_expansion (int, optional): 1 for expansion, 0 for base game. Defaults to 0
+            yearpublished (int, optional): Year the game was published
         """
         self.id = game_id
         self.name = name
@@ -34,11 +67,14 @@ class Game:
     def save_to_db(self):
         """Save the game to the database.
         
-        If the game has an ID, it will be updated if it exists,
-        otherwise a new game will be created.
+        Inserts the game into the games table. If the game already exists
+        (based on game_id/BGG ID), it will be updated instead.
         
         Returns:
-            The game's database ID
+            int: The database ID of the saved game
+            
+        Raises:
+            DatabaseError: If database operation fails
         """
         with CursorFromConnectionPool() as cursor:
             if self.id:
