@@ -62,7 +62,7 @@ class Database:
         
     Thread Safety:
         The underlying psycopg2 connection pool is thread-safe, making
-        this class suitable for multi-threaded applications.
+        this class suitable for multithreaded applications.
     """
     _connection_pool = None
     _connection_error = None
@@ -203,7 +203,7 @@ class CursorFromConnectionPool:
         
     Thread Safety:
         Each instance manages its own connection and cursor, making it
-        safe to use in multi-threaded environments.
+        safe to use in multithreaded environments.
     """
     def __init__(self):
         """Initialize the context manager.
