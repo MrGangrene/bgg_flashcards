@@ -20,9 +20,13 @@ import argparse
 import time
 import xml.etree.ElementTree as Et
 import requests
+import os
+from dotenv import load_dotenv
 from database import CursorFromConnectionPool, Database
 from models.game import Game
-from config import DB_CONFIG
+
+# Load environment variables
+load_dotenv()
 
 
 def parse_arguments():
@@ -99,7 +103,7 @@ def get_game_from_bgg(bgg_id):
                 pass
             
         # Create game with BGG ID as the game ID
-        game = Game(name, avg_rating, min_players, max_players, image_path, id=int(bgg_id), 
+        game = Game(name, avg_rating, min_players, max_players, image_path, game_id=int(bgg_id), 
                     is_expansion=is_expansion, yearpublished=yearpublished)
         
         # Save to database
@@ -435,7 +439,7 @@ def update_database(search_query=None, search_letter=None, limit=50, images_only
             
             # Calculate time to sleep to maintain 15-second interval
             elapsed = time.time() - start_time
-            sleep_time = max(0, 15 - elapsed)
+            sleep_time = max(0, 3 - elapsed)
             
             # Progress report
             if processed % 5 == 0 or processed == len(games_to_update):
@@ -464,8 +468,16 @@ def initialize_database():
     
     This sets up the connection pool with the database parameters.
     """
-    # Initialize the database using the configuration from config.py
-    Database.initialize(**DB_CONFIG)
+    # Initialize the database using environment variables like main.py
+    Database.initialize(
+        minconn=1,
+        maxconn=10,
+        database=os.getenv("DB_NAME", "bgg_flashcards"),
+        user=os.getenv("DB_USER"),
+        password=os.getenv("DB_PASSWORD"),
+        host=os.getenv("DB_HOST", "localhost"),
+        port=os.getenv("DB_PORT", "5432")
+    )
 
 
 if __name__ == "__main__":
