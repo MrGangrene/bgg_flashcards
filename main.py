@@ -1,5 +1,46 @@
+"""BGG Flashcards Application Main Module.
+
+This is the main entry point for the BGG Flashcards application, a Flet-based
+desktop/web application for managing board game flashcards with BoardGameGeek integration.
+
+The application provides:
+- User authentication and registration
+- Board game search and discovery via BoardGameGeek API
+- Personal game collection management
+- Flashcard creation and organization with privacy controls
+- Real-time search with background BGG API integration
+- Local image storage and management
+
+Architecture:
+    - Uses Flet framework for cross-platform UI
+    - PostgreSQL database with connection pooling
+    - Page-based navigation with route management
+    - Background task management for API operations
+    - Model-based data architecture
+
+Navigation Routes:
+    /login - User authentication page
+    / - Main page with user's game collection
+    /search - Game search and discovery
+    /game/{id} - Game details with flashcards
+    /game/{id}/create_flashcard/{category} - Create new flashcard
+    /game/{id}/flashcard/{id}/edit_flashcard - Edit existing flashcard
+
+Usage:
+    python main.py
+    
+Environment Variables:
+    DB_NAME - Database name (default: bgg_flashcards)
+    DB_USER - Database username
+    DB_PASSWORD - Database password
+    DB_HOST - Database host (default: localhost)
+    DB_PORT - Database port (default: 5432)
+"""
+
 import flet as ft
+import os
 from typing import Optional
+from dotenv import load_dotenv
 from database import Database, DatabaseError
 from models.user import User
 from pages.auth_page import AuthPage
@@ -7,6 +48,9 @@ from pages.main_page import MainPage
 from pages.game_search_page import GameSearchPage
 from pages.game_detail_page import GameDetailPage
 from pages.create_flashcard_page import CreateFlashcardPage
+
+# Load environment variables
+load_dotenv()
 
 
 def main(page: ft.Page):
@@ -34,14 +78,11 @@ def main(page: ft.Page):
             Database.initialize(
                 minconn=1,
                 maxconn=10,
-                database="bgg_flashcards",
-                # user="stephen.van.cauwenberghe",
-                # password="password",
-                user="stephenvc",
-                password="UsCAxzFPGT217HHjXvEQCAThUU8ciZ5Z8gAH9FxxKI3e5qzBQn",
-                host="10.0.0.150",
-                # host="localhost",
-                port="5432"
+                database=os.getenv("DB_NAME", "bgg_flashcards"),
+                user=os.getenv("DB_USER"),
+                password=os.getenv("DB_PASSWORD"),
+                host=os.getenv("DB_HOST", "localhost"),
+                port=os.getenv("DB_PORT", "5432")
             )
             db_connected = True
             return True
