@@ -199,7 +199,7 @@ class Flashcard:
             privacy settings.
         """
         with CursorFromConnectionPool() as cursor:
-            cursor.execute('SELECT game_id, user_id, category, title, content, is_private FROM flashcards WHERE id = %s', 
+            cursor.execute('SELECT game_id, user_id, category, title, content, is_private FROM flashcards WHERE id = %s',
                            (flashcard_id,))
             flashcard_data = cursor.fetchone()
             if flashcard_data:

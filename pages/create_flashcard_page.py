@@ -58,7 +58,7 @@ class CreateFlashcardPage:
             on_back (callable, optional): Callback function when user goes back
             
         Note:
-            Either (game_id, user_id) for create mode or flashcard_id for edit mode
+            Either (game_id, user_id) for create mode or id for edit mode
             must be provided. Edit mode will load game_id and user_id from the flashcard.
         """
         self.content_field = None

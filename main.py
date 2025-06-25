@@ -186,7 +186,7 @@ def main(page: ft.Page):
 
         elif route.route.startswith("/game/") and route.route.endswith("/edit_flashcard"):
             # Edit flashcard page - now using CreateFlashcardPage in edit mode
-            # Extract the flashcard_id from the route
+            # Extract the id from the route
             parts = route.route.split("/")
             flashcard_id = int(parts[-2])
             game_id = int(parts[-4])  # Game ID is needed for navigation

@@ -228,8 +228,8 @@ class Game:
                             print(f"Background: Searching BGG by name '{game_name}'")
                             name_results = cls._search_bgg_by_name(game_name, cancellation_checker)
                             print(f"Background: Found {len(name_results)} additional games by name '{game_name}'")
-                        except Exception as e:
-                            print(f"Background name search error after ID lookup: {e}")
+                        except Exception as err:
+                            print(f"Background name search error after ID lookup: {err}")
                     
                     # Start the background name search
                     thread = threading.Thread(target=background_name_search, daemon=True)
@@ -312,7 +312,7 @@ class Game:
             search_item: XML element from BGG search results
             
         Returns:
-            A Game object with best available info, or None if invalid
+            A Game object with the best available info, or None if invalid
         """
         try:
             bgg_id = search_item.get("id")
@@ -404,7 +404,6 @@ class Game:
                         return expansions  # Return partial results
                         
                     expansion_id = link.get("id")
-                    expansion_name = link.get("value")
                     
                     # Get detailed information about this expansion
                     expansion_game = cls.get_bgg_game_details(expansion_id)
@@ -568,22 +567,8 @@ class Game:
             True if local image exists, False otherwise
         """
         with CursorFromConnectionPool() as cursor:
-            # First check if the image_oid column exists
-            cursor.execute("""
-                SELECT EXISTS (
-                    SELECT 1 FROM information_schema.columns 
-                    WHERE table_name = 'games' AND column_name = 'image_oid'
-                )
-            """)
-            column_exists = cursor.fetchone()[0]
-            
-            if not column_exists:
-                # Column doesn't exist, so no local images are stored
-                return False
-            
-            # Column exists, check if this game has an image
             cursor.execute(
-                'SELECT image_oid FROM games WHERE id = %s AND image_oid IS NOT NULL', 
+                'SELECT image_oid FROM games WHERE id = %s AND image_oid IS NOT NULL',
                 (self.id,)
             )
             return cursor.fetchone() is not None

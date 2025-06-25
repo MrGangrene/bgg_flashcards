@@ -16,7 +16,7 @@ Security Note:
 """
 
 import hashlib
-from database import CursorFromConnectionPool, DatabaseError
+from database import CursorFromConnectionPool
 
 
 class User:
