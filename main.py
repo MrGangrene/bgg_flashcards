@@ -39,12 +39,6 @@ def main(page: ft.Page):
             Database.initialize(
                 minconn=1,
                 maxconn=10,
-                # Original hardcoded values (now using environment variables):
-                # database="bgg_flashcards",
-                # user="stephenvc",
-                # password="UsCAxzFPGT217HHjXvEQCAThUU8ciZ5Z8gAH9FxxKI3e5qzBQn",
-                # host="localhost",
-                # port="5432"
                 database=os.getenv("DB_NAME", "bgg_flashcards"),
                 user=os.getenv("DB_USER"),
                 password=os.getenv("DB_PASSWORD"),
