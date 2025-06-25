@@ -213,7 +213,7 @@ class CreateFlashcardPage:
         # Create form fields
         self.category_dropdown = ft.Dropdown(
             label="Category",
-            options=[ft.dropdown.Option(category) for category in self.categories],
+            options=[ft.dropdown.Option(text=category) for category in self.categories],
             value=self.flashcard.category if self.is_edit_mode else (self.default_category if self.default_category in self.categories else self.categories[0]),
             width=400,
         )
