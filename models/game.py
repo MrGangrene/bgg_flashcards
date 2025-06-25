@@ -155,15 +155,16 @@ class Game:
         return {"local_games": games, "local_expansions": expansions, "bgg_games": []}
 
     @classmethod
-    def search_bgg_api(cls, name_query, cancellation_checker=None):
+    def search_bgg_api(cls, name_query, cancellation_checker=None, immediate_callback=None):
         """Search for games using the BoardGameGeek API.
         
         Args:
             name_query: The name to search for
             cancellation_checker: Optional function that returns True if task should be cancelled
+            immediate_callback: Optional callback to call with basic results immediately
             
         Returns:
-            A list of Game objects with data from BoardGameGeek
+            A list of Game objects with detailed data from BoardGameGeek
         """
         """Search for games using the BGG XML API2 and update local database"""
         url = f"https://boardgamegeek.com/xmlapi2/search?query={name_query}&type=boardgame"
@@ -174,12 +175,25 @@ class Game:
                 return []
                 
             root = Et.fromstring(response.content)
+            search_items = root.findall('.//item')
+            
+            print(f"BGG search found {len(search_items)} results for '{name_query}'")
+            
+            # If we have a callback, provide immediate basic results
+            if immediate_callback and search_items:
+                basic_games = []
+                for item in search_items:
+                    basic_game = cls._create_basic_game_from_search(item)
+                    if basic_game:
+                        basic_games.append(basic_game)
+                
+                if basic_games:
+                    print(f"Providing {len(basic_games)} immediate basic results")
+                    immediate_callback(basic_games)
+            
+            # Now get detailed information for each game
             games = []
-            
-            # Get all games from search results (no limit)
-            print(f"BGG search found {len(root.findall('.//item'))} results for '{name_query}'")
-            
-            for item in root.findall(".//item"):
+            for item in search_items:
                 # Check for cancellation before processing each game
                 if cancellation_checker and cancellation_checker():
                     print(f"⏹️ BGG search cancelled during processing")
@@ -198,6 +212,70 @@ class Game:
         except Exception as e:
             print(f"Error searching BGG API: {e}")
             return []
+    
+    @classmethod
+    def _create_basic_game_from_search(cls, search_item):
+        """Create a Game object from BGG search results, prioritizing local database data.
+        
+        Args:
+            search_item: XML element from BGG search results
+            
+        Returns:
+            A Game object with best available info, or None if invalid
+        """
+        try:
+            bgg_id = search_item.get("id")
+            if not bgg_id:
+                return None
+                
+            # First check if we already have this game in the local database
+            existing_game = cls.load_by_id(int(bgg_id))
+            if existing_game:
+                # Use existing database data
+                existing_game._source = "Local Database"
+                return existing_game
+            
+            # Game not in database - create from BGG search data
+            # Get name - prefer primary name
+            name_element = search_item.find(".//name[@type='primary']")
+            if name_element is None:
+                name_element = search_item.find(".//name")
+            if name_element is None:
+                return None
+                
+            name = name_element.get("value")
+            
+            # Get year published if available
+            yearpublished_element = search_item.find(".//yearpublished")
+            yearpublished = None
+            if yearpublished_element is not None:
+                try:
+                    yearpublished = int(yearpublished_element.get("value"))
+                except (ValueError, TypeError):
+                    pass
+            
+            # Create game object with available search data
+            # Don't use placeholder values - use None/0 for missing data
+            game = cls(
+                name=name,
+                avg_rating=0.0,  # Search API doesn't provide rating
+                min_players=0,   # Search API doesn't provide player counts
+                max_players=0,   # Search API doesn't provide player counts
+                image_path="",   # Search API doesn't provide image URL
+                game_id=int(bgg_id),
+                is_expansion=0,  # Will be determined from detailed data
+                yearpublished=yearpublished
+            )
+            
+            # Mark as basic search data (not from database)
+            game._source = "BoardGameGeek (Search)"
+            game._is_search_data = True
+            
+            return game
+            
+        except Exception as e:
+            print(f"Error creating game from search result: {e}")
+            return None
         
     @classmethod
     def get_bgg_expansions(cls, base_game_id, cancellation_checker=None):

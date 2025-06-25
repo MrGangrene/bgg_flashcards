@@ -103,12 +103,13 @@ class GameSearchPage:
         self.add_background_indicator()
         
         # Fetch fresh data from BGG in background
-        def on_bgg_complete(games):
-            if games:
-                # Use the BGG games directly instead of re-querying database
-                # This ensures we show the exact data that was fetched, including player counts
-                base_games = [g for g in games if not g.is_expansion]
-                expansions = [g for g in games if g.is_expansion]
+        def on_bgg_immediate(basic_games):
+            """Called immediately with basic BGG search results."""
+            if basic_games:
+                print(f"📋 Received {len(basic_games)} immediate basic results")
+                # Show basic results immediately
+                base_games = [g for g in basic_games if not g.is_expansion]
+                expansions = [g for g in basic_games if g.is_expansion]
                 
                 # Merge with existing local results (avoid duplicates)
                 existing_ids = {g.id for g in self.local_results}
@@ -119,6 +120,24 @@ class GameSearchPage:
                 
                 self.local_results.extend(new_base_games)
                 self.local_expansions.extend(new_expansions)
+                self.update_results_list()
+        
+        def on_bgg_complete(detailed_games):
+            """Called when detailed BGG data is ready."""
+            if detailed_games:
+                # Replace ALL existing games with detailed versions (both database and search-only)
+                detailed_ids = {g.id for g in detailed_games}
+                
+                # Remove any existing games that match the detailed games (by ID)
+                self.local_results = [g for g in self.local_results if g.id not in detailed_ids]
+                self.local_expansions = [g for g in self.local_expansions if g.id not in detailed_ids]
+                
+                # Add the updated detailed games (these have been saved to database by get_bgg_game_details)
+                base_games = [g for g in detailed_games if not g.is_expansion]
+                expansions = [g for g in detailed_games if g.is_expansion]
+                
+                self.local_results.extend(base_games)
+                self.local_expansions.extend(expansions)
             else:
                 # If no BGG results, refresh local search in case something was updated
                 updated_results = Game.search_by_name(query)
@@ -128,7 +147,7 @@ class GameSearchPage:
             self.remove_background_indicator()
             self.update_results_list()
         
-        background_manager.fetch_bgg_data_in_background(query, on_bgg_complete)
+        background_manager.fetch_bgg_data_in_background(query, on_bgg_complete, on_bgg_immediate)
     
     def update_expansions_after_background(self, expansions):
         """Update expansions list after background fetch."""
@@ -195,12 +214,16 @@ class GameSearchPage:
             if hasattr(game_data, 'yearpublished') and game_data.yearpublished:
                 subtitle_parts.append(f"({game_data.yearpublished})")
                 
-            # Rating
-            subtitle_parts.append(f"Rating: {game_data.avg_rating}")
+            # Rating - show actual value or nothing
+            if game_data.avg_rating and game_data.avg_rating > 0:
+                subtitle_parts.append(f"Rating: {game_data.avg_rating}")
             
-            # Player count
-            player_count = f"Players: {game_data.min_players if game_data.min_players == game_data.max_players else f'{game_data.min_players}-{game_data.max_players}'}"
-            subtitle_parts.append(player_count)
+            # Player count - show if we have valid data (including 1 player games)
+            if (hasattr(game_data, 'min_players') and hasattr(game_data, 'max_players') and
+                game_data.min_players is not None and game_data.max_players is not None and 
+                game_data.min_players >= 1 and game_data.max_players >= 1):
+                player_count = f"Players: {game_data.min_players if game_data.min_players == game_data.max_players else f'{game_data.min_players}-{game_data.max_players}'}"
+                subtitle_parts.append(player_count)
             
             subtitle_text = " • ".join(subtitle_parts)
             
