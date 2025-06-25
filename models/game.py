@@ -1,6 +1,7 @@
 from database import CursorFromConnectionPool
 import requests
 import xml.etree.ElementTree as Et
+from utils.image_service import ImageService
 
 
 class Game:
@@ -154,11 +155,12 @@ class Game:
         return {"local_games": games, "local_expansions": expansions, "bgg_games": []}
 
     @classmethod
-    def search_bgg_api(cls, name_query):
+    def search_bgg_api(cls, name_query, cancellation_checker=None):
         """Search for games using the BoardGameGeek API.
         
         Args:
             name_query: The name to search for
+            cancellation_checker: Optional function that returns True if task should be cancelled
             
         Returns:
             A list of Game objects with data from BoardGameGeek
@@ -174,20 +176,78 @@ class Game:
             root = Et.fromstring(response.content)
             games = []
             
-            # Get up to 5 games from search results
-            for item in root.findall(".//item")[:5]:
+            # Get all games from search results (no limit)
+            print(f"BGG search found {len(root.findall('.//item'))} results for '{name_query}'")
+            
+            for item in root.findall(".//item"):
+                # Check for cancellation before processing each game
+                if cancellation_checker and cancellation_checker():
+                    print(f"⏹️ BGG search cancelled during processing")
+                    return games  # Return partial results
+                    
                 bgg_id = item.get("id")
+                print(f"Processing BGG game ID {bgg_id}...")
                 game_details = cls.get_bgg_game_details(bgg_id)
                 if game_details:
                     # Add source attribute for UI display
                     game_details._source = "BoardGameGeek"
                     games.append(game_details)
-                    
+            
+            print(f"Successfully processed {len(games)} games from BGG")
             return games
         except Exception as e:
             print(f"Error searching BGG API: {e}")
             return []
         
+    @classmethod
+    def get_bgg_expansions(cls, base_game_id, cancellation_checker=None):
+        """Get expansions for a base game from BoardGameGeek.
+        
+        Args:
+            base_game_id: The BGG ID of the base game
+            cancellation_checker: Optional function that returns True if task should be cancelled
+            
+        Returns:
+            A list of Game objects representing expansions
+        """
+        try:
+            # First get the base game details to find linked expansions
+            url = f"https://boardgamegeek.com/xmlapi2/thing?id={base_game_id}&stats=1"
+            response = requests.get(url)
+            
+            if response.status_code != 200:
+                return []
+                
+            root = Et.fromstring(response.content)
+            item = root.find(".//item")
+            
+            if item is None:
+                return []
+            
+            expansions = []
+            
+            # Look for expansion links in the BGG data
+            for link in item.findall(".//link"):
+                if link.get("type") == "boardgameexpansion":
+                    # Check for cancellation before processing each expansion
+                    if cancellation_checker and cancellation_checker():
+                        print(f"⏹️ BGG expansion fetch cancelled during processing")
+                        return expansions  # Return partial results
+                        
+                    expansion_id = link.get("id")
+                    expansion_name = link.get("value")
+                    
+                    # Get detailed information about this expansion
+                    expansion_game = cls.get_bgg_game_details(expansion_id)
+                    if expansion_game:
+                        expansions.append(expansion_game)
+            
+            return expansions
+            
+        except Exception as e:
+            print(f"Error getting BGG expansions: {e}")
+            return []
+    
     @classmethod
     def get_bgg_game_details(cls, bgg_id):
         """Get detailed information about a game from BoardGameGeek.
@@ -238,7 +298,7 @@ class Game:
             # Check if game is an expansion
             is_expansion = 0
             for link in item.findall(".//link"):
-                if link.get("type") == "boardgamecategory" and link.get("value") == "Expansion":
+                if link.get("type") == "boardgamecategory" and link.get("value") == "Expansion for Base-game":
                     is_expansion = 1
                     break
                     
@@ -256,6 +316,15 @@ class Game:
                        is_expansion=is_expansion, yearpublished=yearpublished)
             game.save_to_db()
             
+            # Immediately download and store image locally if available
+            if game.image_path and game.image_path != 'N/A':
+                print(f"Downloading image for {game.name}...")
+                success = game.download_and_store_image()
+                if success:
+                    print(f"✅ Image stored for {game.name}")
+                else:
+                    print(f"❌ Failed to store image for {game.name}")
+            
             return game
         except Exception as e:
             print(f"Error getting BGG game details: {e}")
@@ -269,3 +338,65 @@ class Game:
         """
         from models.flashcard import Flashcard
         return Flashcard.get_by_game_id(self.id)
+    
+    def get_image_src(self):
+        """Get the image source for display in UI.
+        
+        Returns dict with either 'src' or 'src_base64' for Flet Image component.
+        
+        Returns:
+            Dict containing either 'src' (URL) or 'src_base64' (base64 data)
+        """
+        if self.id:
+            # Try to get local image first
+            base64_image = ImageService.get_image_as_base64(self.id)
+            if base64_image:
+                # Extract just the base64 part (remove data:image/jpeg;base64, prefix)
+                if base64_image.startswith('data:'):
+                    base64_data = base64_image.split(',', 1)[1]
+                    return {'src_base64': base64_data}
+        
+        # If we have an external URL, use it
+        if self.image_path and self.image_path != 'N/A' and self.image_path.strip():
+            return {'src': self.image_path}
+        
+        # Fall back to local placeholder image (stored with ID -1)
+        placeholder_image = ImageService.get_image_as_base64(-1)
+        if placeholder_image and placeholder_image.startswith('data:'):
+            base64_data = placeholder_image.split(',', 1)[1]
+            return {'src_base64': base64_data}
+        
+        # Final fallback to remote URL if local placeholder fails
+        return {'src': 'https://cf.geekdo-images.com/zxVVmggfpHJpmnJY9j-k1w__imagepage/img/6AJ0hDAeJlICZkzaeIhZA_fSiAI=/fit-in/900x600/filters:no_upscale():strip_icc()/pic1657689.jpg'}
+    
+    def download_and_store_image(self, force_update=False):
+        """Download and store the image locally in the database.
+        
+        Args:
+            force_update: If True, download even if image already exists
+        
+        Returns:
+            True if successful, False otherwise
+        """
+        if not self.id or not self.image_path or self.image_path == 'N/A':
+            return False
+        
+        # Skip if image already exists (unless forcing update)
+        if not force_update and self._has_local_image():
+            print(f"Image already exists for {self.name}, skipping download")
+            return True
+        
+        return ImageService.download_and_store_image(self.id, self.image_path)
+
+    def _has_local_image(self):
+        """Check if this game already has a locally stored image.
+        
+        Returns:
+            True if local image exists, False otherwise
+        """
+        with CursorFromConnectionPool() as cursor:
+            cursor.execute(
+                'SELECT image_oid FROM games WHERE id = %s AND image_oid IS NOT NULL', 
+                (self.id,)
+            )
+            return cursor.fetchone() is not None

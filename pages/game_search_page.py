@@ -1,6 +1,7 @@
 import flet as ft
 from models.game import Game
 from models.user import User
+from utils.background_tasks import background_manager
 
 
 class GameSearchPage:
@@ -24,65 +25,133 @@ class GameSearchPage:
         """
         query = self.search_field.value
         if query:
-            self.is_loading = True
-            self.update_loading_state()
-            
-            # First check if it's an ID search
+            # Check if it's an ID search
             is_id_search = query.isdigit()
             
             if is_id_search:
-                # For ID search, get game details directly from BGG
-                self.results_list.controls.clear()
-                self.results_list.controls.append(
-                    ft.Column([
-                        ft.ProgressRing(),
-                        ft.Text("Fetching game details from BoardGameGeek..."),
-                    ], alignment=ft.MainAxisAlignment.CENTER)
-                )
-                self.page.update()
-                
-                # Get game details by BGG ID
-                game = Game.get_bgg_game_details(query)
-                if game:
-                    self.local_results = [game]
-                    self.local_expansions = []
-                else:
-                    self.local_results = []
-                    self.local_expansions = []
-                self.bgg_results = []
+                # For ID search, show local results first, then fetch from BGG in background
+                self.show_immediate_results_for_id(query)
             else:
-                # If not an ID search, update local database from BGG first
-                # Update message to show we're fetching from BGG
-                self.results_list.controls.clear()
-                self.results_list.controls.append(
-                    ft.Column([
-                        ft.ProgressRing(),
-                        ft.Text("Updating local database from BoardGameGeek..."),
-                    ], alignment=ft.MainAxisAlignment.CENTER)
-                )
-                self.page.update()
-                
-                # Fetch and import BGG data to update local database
-                Game.search_bgg_api(query)
-                
-                # Now search the local database (which should include any new BGG data)
-                self.results_list.controls.clear()
-                self.results_list.controls.append(
-                    ft.Column([
-                        ft.ProgressRing(),
-                        ft.Text("Retrieving games from database..."),
-                    ], alignment=ft.MainAxisAlignment.CENTER)
-                )
-                self.page.update()
-                
-                # Get search results (now with updated database)
-                results = Game.search_by_name(query)
-                self.local_results = results["local_games"]
-                self.local_expansions = results["local_expansions"]
-                self.bgg_results = []  # We're not showing BGG results separately
+                # For name search, show local results first, then fetch from BGG in background
+                self.show_immediate_results_for_name(query)
+    
+    def show_immediate_results_for_id(self, game_id):
+        """Show immediate results for ID search and fetch BGG data in background."""
+        # First, check if we already have this game locally
+        existing_game = Game.load_by_id(game_id)
+        
+        if existing_game:
+            # Show existing local data immediately
+            self.local_results = [existing_game]
+            # Get local expansions too
+            results = Game.search_by_name(existing_game.name)
+            self.local_expansions = results["local_expansions"]
+            self.bgg_results = []
             
             self.is_loading = False
             self.update_results_list()
+            
+            # Also refresh from BGG in background to get any new data
+            def on_bgg_complete(games):
+                # Refresh results after background fetch
+                if games:
+                    self.local_results = games
+                    # Get updated expansions
+                    background_manager.fetch_expansions_in_background(
+                        game_id, 
+                        lambda exps: self.update_expansions_after_background(exps)
+                    )
+            
+            background_manager.fetch_bgg_data_in_background(f"bgg_id_{game_id}", on_bgg_complete)
+            
+        else:
+            # No local data, show loading and fetch from BGG
+            self.is_loading = True
+            self.update_loading_state()
+            
+            def on_fetch_complete(games):
+                if games:
+                    self.local_results = games
+                    # Also fetch expansions
+                    background_manager.fetch_expansions_in_background(
+                        game_id,
+                        lambda exps: self.update_expansions_after_background(exps)
+                    )
+                else:
+                    self.local_results = []
+                    self.local_expansions = []
+                
+                self.bgg_results = []
+                self.is_loading = False
+                self.update_results_list()
+            
+            # For new games, fetch in background and show placeholder initially
+            background_manager.fetch_bgg_data_in_background(f"bgg_id_{game_id}", on_fetch_complete)
+    
+    def show_immediate_results_for_name(self, query):
+        """Show immediate local results for name search and fetch BGG data in background."""
+        # Show local results immediately
+        results = Game.search_by_name(query)
+        self.local_results = results["local_games"]
+        self.local_expansions = results["local_expansions"]
+        self.bgg_results = []
+        
+        self.is_loading = False
+        self.update_results_list()
+        
+        # Add subtle indicator that we're refreshing in background
+        self.add_background_indicator()
+        
+        # Fetch fresh data from BGG in background
+        def on_bgg_complete(games):
+            # Refresh local search after BGG fetch completes
+            updated_results = Game.search_by_name(query)
+            self.local_results = updated_results["local_games"]
+            self.local_expansions = updated_results["local_expansions"]
+            self.remove_background_indicator()
+            self.update_results_list()
+        
+        background_manager.fetch_bgg_data_in_background(query, on_bgg_complete)
+    
+    def update_expansions_after_background(self, expansions):
+        """Update expansions list after background fetch."""
+        if expansions:
+            self.local_expansions.extend(expansions)
+            # Remove duplicates based on ID
+            seen_ids = set()
+            unique_expansions = []
+            for exp in self.local_expansions:
+                if exp.id not in seen_ids:
+                    unique_expansions.append(exp)
+                    seen_ids.add(exp.id)
+            self.local_expansions = unique_expansions
+            self.update_results_list()
+    
+    def add_background_indicator(self):
+        """Add a subtle indicator that background fetching is happening."""
+        if hasattr(self, 'results_list') and self.results_list.controls:
+            indicator = ft.Container(
+                content=ft.Row([
+                    ft.ProgressRing(width=16, height=16, stroke_width=2),
+                    ft.Text("Refreshing from BoardGameGeek...", size=12, color=ft.Colors.BLUE_600)
+                ]),
+                padding=5,
+                bgcolor=ft.Colors.BLUE_50,
+                border_radius=5,
+                margin=ft.margin.only(bottom=10)
+            )
+            self.results_list.controls.insert(0, indicator)
+            self.page.update()
+    
+    def remove_background_indicator(self):
+        """Remove the background fetching indicator."""
+        if hasattr(self, 'results_list') and self.results_list.controls:
+            # Remove the first control if it's our indicator
+            if (self.results_list.controls and 
+                isinstance(self.results_list.controls[0], ft.Container) and
+                self.results_list.controls[0].bgcolor == ft.Colors.BLUE_50):
+                self.results_list.controls.pop(0)
+                self.page.update()
 
     def update_loading_state(self):
         self.results_list.controls.clear()
@@ -120,10 +189,10 @@ class GameSearchPage:
             
             return ft.ListTile(
                 leading=ft.Image(
-                    src=game_data.image_path if game_data.image_path else "/placeholder.png",
                     width=50,
                     height=50,
                     fit=ft.ImageFit.CONTAIN,
+                    **game_data.get_image_src()
                 ),
                 title=ft.Row([
                     ft.Text(game_data.name),

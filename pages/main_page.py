@@ -75,10 +75,10 @@ class MainPage:
                         content=ft.Column(
                             [
                                 ft.Image(
-                                    src=game.image_path if game.image_path else "/placeholder.png",
                                     width=150,
                                     height=100,
                                     fit=ft.ImageFit.CONTAIN,
+                                    **game.get_image_src()
                                 ),
                                 ft.Text(game.name, size=16, weight=ft.FontWeight.BOLD, text_align=ft.TextAlign.CENTER),
                                 ft.Text(f"Rating: {game.avg_rating}", size=12),

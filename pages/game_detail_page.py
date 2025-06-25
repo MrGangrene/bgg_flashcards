@@ -185,10 +185,10 @@ class GameDetailPage:
         game_info = ft.Row(
             [
                 ft.Image(
-                    src=self.game.image_path if self.game.image_path else "/placeholder.png",
                     width=150,
                     height=150,
                     fit=ft.ImageFit.CONTAIN,
+                    **self.game.get_image_src()
                 ),
                 ft.Column(
                     [
