@@ -291,6 +291,7 @@ class Game:
             max_players_element = item.find(".//maxplayers")
             max_players = int(max_players_element.get("value")) if max_players_element is not None else 1
             
+            
             # Get image
             image_element = item.find(".//image")
             image_path = image_element.text if image_element is not None else ""
@@ -395,6 +396,20 @@ class Game:
             True if local image exists, False otherwise
         """
         with CursorFromConnectionPool() as cursor:
+            # First check if the image_oid column exists
+            cursor.execute("""
+                SELECT EXISTS (
+                    SELECT 1 FROM information_schema.columns 
+                    WHERE table_name = 'games' AND column_name = 'image_oid'
+                )
+            """)
+            column_exists = cursor.fetchone()[0]
+            
+            if not column_exists:
+                # Column doesn't exist, so no local images are stored
+                return False
+            
+            # Column exists, check if this game has an image
             cursor.execute(
                 'SELECT image_oid FROM games WHERE id = %s AND image_oid IS NOT NULL', 
                 (self.id,)

@@ -104,10 +104,27 @@ class GameSearchPage:
         
         # Fetch fresh data from BGG in background
         def on_bgg_complete(games):
-            # Refresh local search after BGG fetch completes
-            updated_results = Game.search_by_name(query)
-            self.local_results = updated_results["local_games"]
-            self.local_expansions = updated_results["local_expansions"]
+            if games:
+                # Use the BGG games directly instead of re-querying database
+                # This ensures we show the exact data that was fetched, including player counts
+                base_games = [g for g in games if not g.is_expansion]
+                expansions = [g for g in games if g.is_expansion]
+                
+                # Merge with existing local results (avoid duplicates)
+                existing_ids = {g.id for g in self.local_results}
+                new_base_games = [g for g in base_games if g.id not in existing_ids]
+                
+                existing_exp_ids = {g.id for g in self.local_expansions}  
+                new_expansions = [g for g in expansions if g.id not in existing_exp_ids]
+                
+                self.local_results.extend(new_base_games)
+                self.local_expansions.extend(new_expansions)
+            else:
+                # If no BGG results, refresh local search in case something was updated
+                updated_results = Game.search_by_name(query)
+                self.local_results = updated_results["local_games"]
+                self.local_expansions = updated_results["local_expansions"]
+            
             self.remove_background_indicator()
             self.update_results_list()
         
