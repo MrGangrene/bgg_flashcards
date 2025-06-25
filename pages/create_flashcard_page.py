@@ -237,7 +237,7 @@ class CreateFlashcardPage:
 
         self.private_checkbox = ft.Container(
             content=ft.Checkbox(
-                label="Keep note Private",
+                label="Private Entry",
                 value=self.flashcard.is_private if self.is_edit_mode else False,
                 tooltip="When checked, only you can see this flashcard",
             ),
